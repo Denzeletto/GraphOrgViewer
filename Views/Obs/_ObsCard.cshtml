@@ -1,0 +1,38 @@
+@model GraphOrgViewer.Models.GraphUserViewModel
+
+@{
+    var initials = string.Join("", (Model.DisplayName ?? "?")
+        .Split(" ", StringSplitOptions.RemoveEmptyEntries)
+        .Take(2)
+        .Select(x => x[0]));
+
+    var photoUrl = !string.IsNullOrWhiteSpace(Model.Id)
+        ? Url.Action("Photo", "Obs", new { id = Model.Id })
+        : null;
+}
+
+<div class="obs-card">
+    <div class="obs-avatar">
+        @if (!string.IsNullOrWhiteSpace(photoUrl))
+        {
+            <img src="@photoUrl"
+                 alt="@Model.DisplayName"
+                 onerror="this.remove();" />
+        }
+        <span>@initials</span>
+    </div>
+
+    <div class="obs-name">@Model.DisplayName</div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.JobTitle))
+    {
+        <div class="obs-title">@Model.JobTitle</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.Department))
+    {
+        <div class="obs-department">@Model.Department</div>
+    }
+
+    <span class="obs-email">@Model.UserPrincipalName</span>
+</div>

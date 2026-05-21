@@ -1,0 +1,433 @@
+@model GraphOrgViewer.Models.DepartmentTasksViewModel
+
+@{
+    ViewData["Title"] = $"Zadania - {Model.DepartmentName}";
+}
+
+<h2>Zadania działu: @Model.DepartmentName</h2>
+
+<form method="get" asp-controller="Tasks" asp-action="Department" class="mb-4">
+    <input type="hidden" name="departmentName" value="@Model.DepartmentName" />
+
+    <h5>Wyklucz osoby z agregacji:</h5>
+
+    @if (!Model.Users.Any())
+    {
+        <p class="text-muted">Nie znaleziono użytkowników w tym dziale.</p>
+    }
+    else
+    {
+        @foreach (var user in Model.Users)
+        {
+            <div class="form-check">
+                <input class="form-check-input"
+                       type="checkbox"
+                       name="excludedUserIds"
+                       value="@user.Id"
+                       id="user_@user.Id"
+                       checked="@Model.ExcludedUserIds.Contains(user.Id ?? "")" />
+
+                <label class="form-check-label" for="user_@user.Id">
+                    @user.DisplayName
+                    <span class="text-muted">
+                        (@user.JobTitle)
+                    </span>
+                </label>
+            </div>
+        }
+
+        <button type="submit" class="btn btn-primary mt-3">
+            Odśwież widok
+        </button>
+    }
+</form>
+
+<hr />
+
+@{
+    var usersById = Model.Users
+        .Where(u => !string.IsNullOrWhiteSpace(u.Id))
+        .ToDictionary(u => u.Id!, u => u.DisplayName);
+
+    var allTasks = Model.UserTasks
+        .SelectMany(user => user.Tasks.Select(task => new
+        {
+            Task = task,
+            FallbackUserName = user.DisplayName
+        }))
+        .GroupBy(x => x.Task.Id)
+        .Select(g =>
+        {
+            var first = g.First();
+
+            var assignedNames = first.Task.AssignedUserIds
+                .Where(id => usersById.ContainsKey(id))
+                .Select(id => usersById[id])
+                .Distinct()
+                .ToList();
+
+            if (!assignedNames.Any())
+            {
+                assignedNames = g
+                    .Select(x => x.FallbackUserName)
+                    .Distinct()
+                    .ToList();
+            }
+
+            return new
+            {
+                Task = first.Task,
+                AssignedNames = assignedNames
+            };
+        })
+        .ToList();
+}
+
+@if (!allTasks.Any())
+{
+    <p>Brak zadań dla wybranych użytkowników.</p>
+}
+else
+{
+    <div class="tasks-table-wrapper">
+        <table class="tasks-table" id="tasksTable">
+            <thead>
+                <tr>
+                    <th data-sort="text">Osoby <span class="sort-arrow"></span></th>                    
+                    <th data-sort="text">Tytuł <span class="sort-arrow"></span></th>
+                    <th data-sort="date">Termin <span class="sort-arrow"></span></th>
+                    <th data-sort="number">Priorytet <span class="sort-arrow"></span></th>                    
+                    <th data-sort="number">Postęp <span class="sort-arrow"></span></th>
+                    <th data-sort="text">Plan <span class="sort-arrow"></span></th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var item in allTasks)
+                {
+                    <tr class="task-row"
+                        data-task-id="@item.Task.Id"
+                        data-task-title="@item.Task.Title"
+                        data-priority="@(item.Task.Priority ?? 5)"
+                        data-assigned-users="@string.Join(",", item.Task.AssignedUserIds)">          
+
+                        <td>
+                            <div class="assigned-users">
+                                @foreach (var name in item.AssignedNames)
+                                {
+                                    <span class="assigned-user-badge">@name</span>
+                                }
+                            </div>
+                        </td>                        
+                        <td>@item.Task.Title</td>
+                        <td data-value="@(item.Task.DueDateTime?.ToString("yyyy-MM-ddTHH:mm:ss") ?? "")">
+                            @(item.Task.DueDateTime?.ToString("yyyy-MM-dd HH:mm") ?? "-")
+                        </td>
+                        @{
+                            var priority = item.Task.Priority ?? 5;
+
+                            var priorityLabel = priority switch
+                            {
+                                <= 3 => "Wysoki",
+                                <= 5 => "Średni",
+                                _ => "Niski"
+                            };
+
+                            var priorityClass = priority switch
+                            {
+                                <= 3 => "priority-high",
+                                <= 5 => "priority-medium",
+                                _ => "priority-low"
+                            };
+                        }
+
+                        <td data-value="@priority">
+                            <span class="priority-badge @priorityClass">
+                                @priorityLabel
+                            </span>
+                        </td>                        
+                        <td data-value="@(item.Task.PercentComplete ?? 0)">
+                            @(item.Task.PercentComplete?.ToString() ?? "-")%
+                        </td>
+                        <td>@(item.Task.PlanTitle ?? item.Task.PlanId ?? "-")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="modal fade" id="taskEditModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form method="post" asp-controller="Tasks" asp-action="UpdateTask" class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="taskEditTitle">Edycja zadania</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <input type="hidden" name="taskId" id="editTaskId" />
+                        <input type="hidden" name="departmentName" value="@Model.DepartmentName" />
+
+                        <label class="form-label">Priorytet</label>
+                        <select name="priority" id="editPriority" class="form-select mb-3">
+                            <option value="1">Pilny</option>
+                            <option value="3">Wysoki</option>
+                            <option value="5">Średni</option>
+                            <option value="9">Niski</option>
+                        </select>
+
+                        <label class="form-label">Przypisane osoby</label>
+
+                        <div class="edit-users-list">
+                            @foreach (var user in Model.Users)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input edit-assigned-user"
+                                        type="checkbox"
+                                        name="assignedUserIds"
+                                        value="@user.Id"
+                                        id="assign_@user.Id" />
+
+                                    <label class="form-check-label" for="assign_@user.Id">
+                                        @user.DisplayName
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Anuluj
+                        </button>
+
+                        <button type="submit" class="btn btn-primary">
+                            Zapisz
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .tasks-table-wrapper {
+        margin-top: 24px;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        background: white;
+    }
+
+    .tasks-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .tasks-table thead {
+        background: #f3f4f6;
+    }
+
+    .tasks-table th {
+        padding: 14px 16px;
+        font-weight: 700;
+        color: #111827;
+        cursor: pointer;
+        user-select: none;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+    }
+
+    .tasks-table th:hover {
+        background: #e5e7eb;
+    }
+
+    .tasks-table td {
+        padding: 13px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #374151;
+    }
+
+    .tasks-table tbody tr:hover {
+        background: #f9fafb;
+    }
+
+    .tasks-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .sort-arrow {
+        display: inline-block;
+        margin-left: 6px;
+        color: #2563eb;
+        font-size: 12px;
+    }
+
+    .tasks-table th.sorted-asc .sort-arrow::after {
+        content: "▲";
+    }
+
+    .tasks-table th.sorted-desc .sort-arrow::after {
+        content: "▼";
+    }
+
+    .priority-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .priority-low {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .priority-medium {
+        background: #fef9c3;
+        color: #854d0e;
+    }
+
+    .priority-high {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .task-row {
+        cursor: pointer;
+    }
+
+    .task-row:hover {
+        background: #eef6ff !important;
+    }
+
+    .edit-users-list {
+        max-height: 260px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px;
+        background: #f9fafb;
+    }
+
+    .assigned-users {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .assigned-user-badge {
+        display: inline-block;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: #e0f2fe;
+        color: #075985;
+        font-size: 12px;
+        font-weight: 600;
+    }
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const table = document.getElementById("tasksTable");
+
+        if (!table) {
+            return;
+        }
+
+        const headers = table.querySelectorAll("th");
+        const tbody = table.querySelector("tbody");
+
+        headers.forEach((header, columnIndex) => {
+            header.addEventListener("click", function () {
+                const currentDirection = header.classList.contains("sorted-asc")
+                    ? "asc"
+                    : header.classList.contains("sorted-desc")
+                        ? "desc"
+                        : null;
+
+                const newDirection = currentDirection === "asc" ? "desc" : "asc";
+                const sortType = header.dataset.sort;
+
+                headers.forEach(h => {
+                    h.classList.remove("sorted-asc", "sorted-desc");
+                });
+
+                header.classList.add(newDirection === "asc" ? "sorted-asc" : "sorted-desc");
+
+                const rows = Array.from(tbody.querySelectorAll("tr"));
+
+                rows.sort((a, b) => {
+                    const aCell = a.children[columnIndex];
+                    const bCell = b.children[columnIndex];
+
+                    let aValue = aCell.dataset.value || aCell.innerText.trim();
+                    let bValue = bCell.dataset.value || bCell.innerText.trim();
+
+                    if (sortType === "number") {
+                        aValue = parseFloat(aValue) || 0;
+                        bValue = parseFloat(bValue) || 0;
+                    }
+
+                    if (sortType === "date") {
+                        aValue = aValue ? new Date(aValue).getTime() : Number.MAX_SAFE_INTEGER;
+                        bValue = bValue ? new Date(bValue).getTime() : Number.MAX_SAFE_INTEGER;
+                    }
+
+                    if (sortType === "text") {
+                        aValue = aValue.toLowerCase();
+                        bValue = bValue.toLowerCase();
+                    }
+
+                    if (aValue < bValue) {
+                        return newDirection === "asc" ? -1 : 1;
+                    }
+
+                    if (aValue > bValue) {
+                        return newDirection === "asc" ? 1 : -1;
+                    }
+
+                    return 0;
+                });
+
+                rows.forEach(row => tbody.appendChild(row));
+            });
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const rows = document.querySelectorAll(".task-row");
+        const modalElement = document.getElementById("taskEditModal");
+
+        if (!modalElement) {
+            return;
+        }
+
+        const modal = new bootstrap.Modal(modalElement);
+
+        rows.forEach(row => {
+            row.addEventListener("click", function () {
+                const taskId = row.dataset.taskId;
+                const title = row.dataset.taskTitle;
+                const priority = row.dataset.priority;
+                const assignedUsers = (row.dataset.assignedUsers || "")
+                    .split(",")
+                    .filter(x => x);
+
+                document.getElementById("editTaskId").value = taskId;
+                document.getElementById("taskEditTitle").innerText = title;
+                document.getElementById("editPriority").value = priority;
+
+                document.querySelectorAll(".edit-assigned-user").forEach(checkbox => {
+                    checkbox.checked = assignedUsers.includes(checkbox.value);
+                });
+
+                modal.show();
+            });
+        });
+    });
+</script>

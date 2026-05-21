@@ -1,0 +1,201 @@
+@model Dictionary<string, List<GraphOrgViewer.Models.GraphUserViewModel>>
+
+@{
+    ViewData["Title"] = "Działy";
+}
+
+<div class="departments-wrapper">
+    <h2 class="departments-title">Działy</h2>
+
+    <div class="departments-grid">
+        @foreach (var department in Model)
+        {
+            var modalId = "modal_" + Guid.NewGuid().ToString("N");
+
+            <button type="button" class="department-card" onclick="openDepartmentModal('@modalId')">
+                <div class="department-name">@department.Key</div>
+                <div class="department-count">@department.Value.Count użytkowników</div>
+            </button>
+
+            <div id="@modalId" class="department-modal">
+                <div class="department-modal-content">
+                    <div class="department-modal-header">
+                        <h3>@department.Key</h3>
+                        <button type="button" class="modal-close" onclick="closeDepartmentModal('@modalId')">×</button>
+                    </div>
+
+                    <div class="department-users">
+                        @foreach (var user in department.Value)
+                        {
+                            <div class="department-user">
+                                <strong>@user.DisplayName</strong>
+
+                                @if (!string.IsNullOrWhiteSpace(user.JobTitle))
+                                {
+                                    <span>@user.JobTitle</span>
+                                }
+
+                                <small>@user.UserPrincipalName</small>
+
+                                @if (!string.IsNullOrWhiteSpace(user.MobilePhone) || !string.IsNullOrWhiteSpace(user.BusinessPhone))
+                                {
+                                    <small>Tel: @(user.MobilePhone ?? user.BusinessPhone)</small>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .departments-wrapper {
+        max-width: 1200px;
+        margin: 30px auto;
+        padding: 24px;
+    }
+
+    .departments-title {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 24px;
+        color: #1f2937;
+    }
+
+    .departments-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 18px;
+    }
+
+    .department-card {
+        border: 1px solid #e5e7eb;
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        text-align: left;
+        cursor: pointer;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .department-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+    }
+
+    .department-name {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .department-count {
+        margin-top: 8px;
+        color: #6b7280;
+        font-size: 14px;
+    }
+
+    .department-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        z-index: 9999;
+        padding: 40px;
+    }
+
+    .department-modal-content {
+        max-width: 760px;
+        max-height: 85vh;
+        overflow-y: auto;
+        margin: 0 auto;
+        background: white;
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+    }
+
+    .department-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 18px;
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 12px;
+    }
+
+    .department-modal-header h3 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+    }
+
+    .modal-close {
+        border: 0;
+        background: #111827;
+        color: white;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        font-size: 22px;
+        cursor: pointer;
+    }
+
+    .department-users {
+        display: grid;
+        gap: 12px;
+    }
+
+    .department-user {
+        padding: 14px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #f9fafb;
+        display: grid;
+        gap: 3px;
+    }
+
+    .department-user strong {
+        color: #111827;
+    }
+
+    .department-user span {
+        color: #374151;
+        font-size: 14px;
+    }
+
+    .department-user small {
+        color: #6b7280;
+    }
+</style>
+
+<script>
+    function openDepartmentModal(id) {
+        const modal = document.getElementById(id);
+
+        if (!modal) {
+            return;
+        }
+
+        modal.style.display = 'block';
+    }
+
+    function closeDepartmentModal(id) {
+        const modal = document.getElementById(id);
+
+        if (!modal) {
+            return;
+        }
+
+        modal.style.display = 'none';
+    }
+
+    window.addEventListener('click', function (event) {
+        if (event.target.classList.contains('department-modal')) {
+            event.target.style.display = 'none';
+        }
+    });
+</script>

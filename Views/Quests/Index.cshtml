@@ -1,0 +1,83 @@
+@model GraphOrgViewer.Models.QuestViewModel
+@{
+    var users = ViewBag.Users as List<GraphOrgViewer.Models.GraphUserViewModel>;
+    var selectedUserId = ViewBag.SelectedUserId as string;
+}
+<h2>Questy</h2>
+
+<form method="get" asp-controller="Quests" asp-action="Index" class="mb-4">
+    <label>Użytkownik:</label>
+
+    <select name="userId" class="form-select" onchange="this.form.submit()">
+        @foreach (var user in users ?? new())
+        {
+            <option value="@user.Id" selected="@(user.Id == selectedUserId)">
+                @user.DisplayName
+            </option>
+        }
+    </select>
+</form>
+
+<h3>Kanały Teams</h3>
+
+@if (!Model.Teams.Any())
+{
+    <p>Brak zespołów lub brak uprawnień do odczytu Teams.</p>
+}
+else
+{
+    @foreach (var team in Model.Teams)
+    {
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong>@team.TeamName</strong>
+            </div>
+
+            <ul class="list-group list-group-flush">
+                @foreach (var channel in team.Channels)
+                {
+                    <li class="list-group-item">
+                        <strong>@channel.DisplayName</strong>
+                        @if (!string.IsNullOrWhiteSpace(channel.Description))
+                        {
+                            <div class="text-muted">@channel.Description</div>
+                        }
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+}
+
+<hr />
+
+<h3>Zadania Planner</h3>
+
+@if (!Model.Tasks.Any())
+{
+    <p>Brak zadań lub brak uprawnień do odczytu Plannera.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Tytuł</th>
+                <th>Termin</th>
+                <th>Postęp</th>
+                <th>Plan</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var task in Model.Tasks)
+            {
+                <tr>
+                    <td>@task.Title</td>
+                    <td>@(task.DueDateTime?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                    <td>@(task.PercentComplete?.ToString() ?? "-")%</td>
+                    <td>@task.PlanId</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

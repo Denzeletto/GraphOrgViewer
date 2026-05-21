@@ -1,0 +1,61 @@
+@model GraphOrgViewer.Models.GraphUserViewModel
+
+@{
+    var hasChildren = Model.Children.Any();
+    var nodeId = "node_" + Guid.NewGuid().ToString("N");
+
+    var initials = string.Join("", (Model.DisplayName ?? "?")
+        .Split(" ", StringSplitOptions.RemoveEmptyEntries)
+        .Take(2)
+        .Select(x => x[0]));
+}
+
+<div class="org-node">
+    <div class="org-card">
+        @if (hasChildren)
+        {
+            <button type="button" class="toggle-btn" onclick="toggleNode('@nodeId', this)">
+                −
+            </button>
+        }
+        else
+        {
+            <span class="toggle-placeholder"></span>
+        }
+
+        <div class="org-avatar">@initials</div>
+
+        <div class="org-info">
+            <div class="org-name">@Model.DisplayName</div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.JobTitle))
+            {
+                <div class="org-position">@Model.JobTitle</div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.Department))
+            {
+                <span class="org-department">@Model.Department</span>
+            }
+
+            <span class="org-email">@Model.UserPrincipalName</span>
+            
+            @if (!string.IsNullOrWhiteSpace(Model.MobilePhone) || !string.IsNullOrWhiteSpace(Model.BusinessPhone))
+            {
+                <span class="org-email">
+                    Tel: @(Model.MobilePhone ?? Model.BusinessPhone)
+                </span>
+            }
+        </div>
+    </div>
+
+    @if (hasChildren)
+    {
+        <div id="@nodeId" class="org-children">
+            @foreach (var child in Model.Children.OrderBy(x => x.DisplayName))
+            {
+                @await Html.PartialAsync("_UserNode", child)
+            }
+        </div>
+    }
+</div>

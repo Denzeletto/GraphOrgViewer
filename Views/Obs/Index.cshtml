@@ -1,0 +1,352 @@
+@using System.Text.Json
+@model GraphOrgViewer.Models.TreantNodeViewModel?
+
+@{
+    ViewData["Title"] = "OBS";
+
+    var nodeJson = JsonSerializer.Serialize(Model, new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    });
+}
+
+<link rel="stylesheet" href="~/lib/treant/Treant.css" />
+
+<div class="obs-page">
+    @if (Model == null)
+    {
+        <p class="obs-empty">Brak danych do wyświetlenia.</p>
+    }
+    else
+    {
+        <div id="obs-tree"></div>
+    }
+</div>
+
+<style>
+    html,
+    body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #0f172a;
+        font-family: Inter, Segoe UI, Arial, sans-serif;
+    }
+
+    .obs-page {
+        width: 100vw;
+        height: calc(100vh - 68px);
+        margin-left: calc(50% - 50vw);
+        margin-right: calc(50% - 50vw);
+        margin-top: 0;
+        padding: 4px 0 0 0;
+        overflow: auto;
+        box-sizing: border-box;
+        background:
+            radial-gradient(circle at top left, rgba(59, 130, 246, .22), transparent 34%),
+            radial-gradient(circle at top right, rgba(168, 85, 247, .18), transparent 30%),
+            linear-gradient(135deg, #0f172a, #111827);
+    }
+
+    .obs-empty {
+        margin: 16px;
+        color: white;
+        font-size: 16px;
+    }
+
+    #obs-tree {
+        position: relative;
+        width: 100%;
+        min-width: 100%;
+        height: 100%;
+        min-height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: visible;
+        box-sizing: border-box;
+    }
+
+    .Treant {
+        position: relative !important;
+        width: 100% !important;
+        min-width: 100%;
+        height: 100%;
+        min-height: 100%;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        box-sizing: border-box;
+        transform-origin: top left;
+    }
+
+    .Treant .node,
+    .Treant .obs-node {
+        width: 260px !important;
+        height: auto !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+    }
+
+    .Treant .obs-card {
+        width: 260px;
+        min-height: 150px;
+        padding: 16px;
+        box-sizing: border-box;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, .94);
+        border: 1px solid rgba(255, 255, 255, .65);
+        box-shadow:
+            0 20px 45px rgba(0, 0, 0, .28),
+            inset 0 1px 0 rgba(255, 255, 255, .8);
+        text-align: left;
+        overflow: hidden;
+        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+
+    .Treant .obs-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 28px 60px rgba(0, 0, 0, .36);
+        border-color: #93c5fd;
+    }
+
+    .Treant .obs-avatar {
+        float: left;
+        width: 54px;
+        height: 54px;
+        margin: 0 12px 10px 0;
+        border-radius: 18px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #2563eb, #9333ea);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        font-size: 15px;
+        box-shadow: 0 10px 22px rgba(37, 99, 235, .35);
+        position: relative;
+    }
+
+    .Treant .obs-avatar img {
+        position: absolute;
+        inset: 0;
+        width: 54px !important;
+        height: 54px !important;
+        object-fit: cover;
+        border-radius: 18px;
+        z-index: 2;
+    }
+
+    .Treant .obs-avatar span {
+        position: relative;
+        z-index: 1;
+    }
+
+    .Treant .obs-name {
+        color: #0f172a;
+        font-size: 15px;
+        font-weight: 900;
+        line-height: 1.2;
+        padding-top: 4px;
+    }
+
+    .Treant .obs-title {
+        margin-top: 5px;
+        color: #475569;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.25;
+    }
+
+    .Treant .obs-department {
+        clear: both;
+        display: inline-flex;
+        margin-top: 12px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #dbeafe, #ede9fe);
+        color: #1e3a8a;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .03em;
+        text-transform: uppercase;
+    }
+
+    .Treant .obs-email {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed #cbd5e1;
+        color: #64748b;
+        font-size: 10px;
+        line-height: 1.25;
+        word-break: break-word;
+    }
+    .Treant .obs-phone {
+        margin-top: 4px;
+        color: #334155;
+        font-size: 10px;
+        line-height: 1.25;
+        font-weight: 700;
+    }
+    .Treant path {
+        stroke: rgba(148, 163, 184, .75) !important;
+        stroke-width: 2.5px !important;
+    }
+
+    .Treant .collapse-switch {
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        border: 2px solid #bfdbfe;
+        background: #ffffff;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, .25);
+        cursor: pointer;
+    }
+
+    .Treant .collapse-switch:hover {
+        background: #dbeafe;
+    }
+
+    .obs-page::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+    }
+
+    .obs-page::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, .55);
+        border-radius: 999px;
+        border: 3px solid #0f172a;
+    }
+
+    .obs-page::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, .4);
+    }
+</style>
+
+<script src="~/lib/treant/vendor/raphael.js"></script>
+<script src="~/lib/treant/Treant.js"></script>
+
+<script>
+    const nodeStructure = @Html.Raw(nodeJson);
+
+    if (nodeStructure) {
+        const chartConfig = {
+            chart: {
+                container: "#obs-tree",
+                rootOrientation: "NORTH",
+                nodeAlign: "CENTER",
+
+                connectors: {
+                    type: "straight",
+                    style: {
+                        stroke: "rgba(203,213,225,.7)",
+                        "stroke-width": 2
+                    }
+                },
+
+                node: {
+                    collapsable: true
+                },
+
+                stackChildren: true,
+
+                levelSeparation: 70,
+                siblingSeparation: 45,
+                subTeeSeparation: 55
+            },
+            nodeStructure: nodeStructure
+        };
+
+        new Treant(chartConfig);
+
+        function setObsPageHeight() {
+            const page = document.querySelector(".obs-page");
+
+            if (!page) {
+                return;
+            }
+
+            const top = page.getBoundingClientRect().top;
+            page.style.height = `${window.innerHeight - top}px`;
+        }
+
+        function adjustObsTree() {
+            const page = document.querySelector(".obs-page");
+            const tree = document.querySelector("#obs-tree");
+            const treantElement = document.querySelector("#obs-tree > .Treant");
+            const nodes = document.querySelectorAll("#obs-tree .node");
+
+            if (!page || !tree || !treantElement || nodes.length === 0) {
+                return;
+            }
+
+            setObsPageHeight();
+
+            page.style.overflowX = "auto";
+            page.style.overflowY = "auto";
+
+            tree.style.width = "100%";
+            tree.style.height = "100%";
+
+            treantElement.style.width = "100%";
+            treantElement.style.height = "100%";
+            treantElement.style.transform = "none";
+
+            const treantRect = treantElement.getBoundingClientRect();
+
+            let minLeft = Infinity;
+            let minTop = Infinity;
+            let maxRight = -Infinity;
+            let maxBottom = -Infinity;
+
+            nodes.forEach(node => {
+                const rect = node.getBoundingClientRect();
+
+                minLeft = Math.min(minLeft, rect.left - treantRect.left);
+                minTop = Math.min(minTop, rect.top - treantRect.top);
+                maxRight = Math.max(maxRight, rect.right - treantRect.left);
+                maxBottom = Math.max(maxBottom, rect.bottom - treantRect.top);
+            });
+
+            const padding = 8;
+
+            const chartWidth = Math.ceil(maxRight - minLeft + padding * 2);
+            const chartHeight = Math.ceil(maxBottom - minTop + padding * 2);
+
+            const finalWidth = Math.max(chartWidth, page.clientWidth);
+            const finalHeight = Math.max(chartHeight, page.clientHeight);
+
+            tree.style.width = `${finalWidth}px`;
+            tree.style.height = `${finalHeight}px`;
+
+            treantElement.style.width = `${finalWidth}px`;
+            treantElement.style.height = `${finalHeight}px`;
+
+            treantElement.style.transform = `translate(${-minLeft + padding}px, ${-minTop + padding}px)`;
+
+            page.scrollLeft = 0;
+            page.scrollTop = 0;
+        }
+
+        function scheduleAdjustObsTree() {
+            requestAnimationFrame(() => {
+                adjustObsTree();
+                setTimeout(adjustObsTree, 100);
+                setTimeout(adjustObsTree, 400);
+            });
+        }
+
+        scheduleAdjustObsTree();
+
+        window.addEventListener("resize", scheduleAdjustObsTree);
+
+        document.addEventListener("click", function (event) {
+            if (event.target.closest(".collapse-switch")) {
+                scheduleAdjustObsTree();
+            }
+        });
+    }
+</script>

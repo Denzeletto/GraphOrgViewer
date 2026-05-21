@@ -1,0 +1,55 @@
+@model List<GraphOrgViewer.Models.GroupOwnerViewModel>
+
+<h2>Grupy w organizacji</h2>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-warning">
+        Brak grup albo aplikacja nie ma uprawnień do odczytu grup.
+    </div>
+}
+else
+{
+    <table class="table table-striped table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Nazwa grupy</th>
+                <th>Typ</th>
+                <th>Mail</th>
+                <th>Właściciele</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var group in Model)
+            {
+                <tr>
+                    <td>
+                        <strong>@group.GroupName</strong>
+                    </td>
+                    <td>@group.GroupType</td>
+                    <td>@(group.Mail ?? "-")</td>
+                    <td>
+                        @if (group.Owners.Any())
+                        {
+                            <ul class="mb-0">
+                                @foreach (var owner in group.Owners)
+                                {
+                                    <li>
+                                        <strong>@owner.DisplayName</strong>
+                                        <span class="text-muted">
+                                            @(owner.Mail ?? owner.UserPrincipalName ?? "")
+                                        </span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <span class="text-danger">Brak właściciela / brak dostępu</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

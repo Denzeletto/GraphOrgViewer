@@ -1,0 +1,42 @@
+@model GraphOrgViewer.Models.GraphUserViewModel
+
+@{
+    var initials = string.Join("", (Model.DisplayName ?? "?")
+        .Split(" ", StringSplitOptions.RemoveEmptyEntries)
+        .Take(2)
+        .Select(x => x[0]));
+
+    var hasChildren = Model.Children.Any();
+}
+
+<div class="obs-tree">
+    <div class="obs-card">
+        <div class="obs-avatar">@initials</div>
+
+        <div class="obs-name">@Model.DisplayName</div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.JobTitle))
+        {
+            <div class="obs-title">@Model.JobTitle</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.Department))
+        {
+            <div class="obs-department">@Model.Department</div>
+        }
+
+        <span class="obs-email">@Model.UserPrincipalName</span>
+    </div>
+
+    @if (hasChildren)
+    {
+        <div class="obs-children">
+            @foreach (var child in Model.Children.OrderBy(x => x.DisplayName))
+            {
+                <div class="obs-child">
+                    @await Html.PartialAsync("_ObsNode", child)
+                </div>
+            }
+        </div>
+    }
+</div>

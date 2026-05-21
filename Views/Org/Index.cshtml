@@ -1,0 +1,169 @@
+@model List<GraphOrgViewer.Models.GraphUserViewModel>
+
+@{
+    ViewData["Title"] = "Struktura organizacji";
+}
+
+<div class="org-wrapper">
+    <h2 class="org-title">Struktura organizacji</h2>
+
+    @foreach (var root in Model)
+    {
+        @await Html.PartialAsync("_UserNode", root)
+    }
+</div>
+<style>
+    body {
+        background: #f4f6f9;
+    }
+
+    .org-wrapper {
+        max-width: 1200px;
+        margin: 30px auto;
+        padding: 24px;
+    }
+
+    .org-title {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 24px;
+        color: #1f2937;
+    }
+
+    .org-node {
+        position: relative;
+        margin-left: 34px;
+        padding-left: 28px;
+        margin-top: 14px;
+    }
+
+    .org-node::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: -14px;
+        width: 2px;
+        background: #d1d5db;
+    }
+
+    .org-node::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 34px;
+        width: 24px;
+        height: 2px;
+        background: #d1d5db;
+    }
+
+    .org-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        min-width: 320px;
+        max-width: 460px;
+        padding: 14px 16px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .org-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 26px rgba(15, 23, 42, 0.12);
+    }
+
+    .org-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    .org-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .org-name {
+        font-weight: 700;
+        color: #111827;
+        font-size: 15px;
+    }
+
+    .org-position {
+        color: #374151;
+        font-size: 13px;
+        margin-top: 3px;
+    }
+
+    .org-department {
+        display: inline-block;
+        margin-top: 7px;
+        padding: 3px 8px;
+        background: #eef2ff;
+        color: #3730a3;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .org-email {
+        display: block;
+        margin-top: 7px;
+        color: #6b7280;
+        font-size: 12px;
+        word-break: break-word;
+    }
+
+    .toggle-btn {
+        width: 28px;
+        height: 28px;
+        border: 0;
+        border-radius: 8px;
+        background: #111827;
+        color: white;
+        cursor: pointer;
+        font-weight: 700;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+
+    .toggle-btn:hover {
+        background: #2563eb;
+    }
+
+    .toggle-placeholder {
+        width: 28px;
+        flex-shrink: 0;
+    }
+
+    .org-children {
+        display: block;
+        margin-top: 8px;
+    }
+</style>
+
+<script>
+    function toggleNode(id, button) {
+        const element = document.getElementById(id);
+
+        if (!element) {
+            return;
+        }
+
+        const isHidden = element.style.display === 'none';
+
+        element.style.display = isHidden ? 'block' : 'none';
+        button.textContent = isHidden ? '−' : '+';
+    }
+</script>
