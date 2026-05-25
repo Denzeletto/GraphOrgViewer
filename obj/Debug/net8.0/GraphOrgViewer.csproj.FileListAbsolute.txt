@@ -73,3 +73,4 @@ C:\Users\KSTENCEL\GraphOrgViewer\obj\Debug\net8.0\refint\GraphOrgViewer.dll
 C:\Users\KSTENCEL\GraphOrgViewer\obj\Debug\net8.0\GraphOrgViewer.pdb
 C:\Users\KSTENCEL\GraphOrgViewer\obj\Debug\net8.0\GraphOrgViewer.genruntimeconfig.cache
 C:\Users\KSTENCEL\GraphOrgViewer\obj\Debug\net8.0\ref\GraphOrgViewer.dll
+C:\Users\KSTENCEL\GraphOrgViewer\obj\Debug\net8.0\GraphOrgViewer.sourcelink.json

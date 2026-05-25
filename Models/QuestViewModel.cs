@@ -30,6 +30,8 @@ public class PlannerTaskViewModel
     public int? PercentComplete { get; set; }
     public string? PlanTitle { get; set; }
     public int? Priority { get; set; }
+    public string? Description { get; set; }
     public List<string> AssignedUserIds { get; set; } = new();
+    public List<PlannerChecklistItemViewModel> ChecklistItems { get; set; } = new();
 
 }

@@ -2,6 +2,7 @@ using Azure.Identity;
 using GraphOrgViewer.Models;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
+using Microsoft.Kiota.Abstractions.Serialization;
 
 namespace GraphOrgViewer.Services;
 
@@ -219,6 +220,57 @@ public class GraphOrgService
                             planNames[task.PlanId] = planTitle;
                         }
                     }
+
+                    var checklistItems = new List<PlannerChecklistItemViewModel>();
+                    var description = "";
+
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(task.Id))
+                        {
+                            var details = await _graphClient.Planner.Tasks[task.Id].Details.GetAsync();
+
+                            description = details?.Description ?? "";
+                            
+                            if (details?.Checklist?.AdditionalData != null)
+                            {
+                                foreach (var item in details.Checklist.AdditionalData)
+                                {
+                                    if (item.Value is not UntypedObject checklistObject)
+                                        continue;
+
+                                    var title = "";
+                                    var isChecked = false;
+
+                                    var properties = checklistObject.GetValue();
+
+                                    if (properties.TryGetValue("title", out var titleValue)
+                                        && titleValue is UntypedString titleString)
+                                    {
+                                        title = titleString.GetValue();
+                                    }
+
+                                    if (properties.TryGetValue("isChecked", out var checkedValue)
+                                        && checkedValue is UntypedBoolean checkedBoolean)
+                                    {
+                                        isChecked = checkedBoolean.GetValue();
+                                    }
+
+                                    checklistItems.Add(new PlannerChecklistItemViewModel
+                                    {
+                                        Id = item.Key,
+                                        Title = title,
+                                        IsChecked = isChecked
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Checklist parse error for task {task.Title}: {ex.Message}");
+                    }
+
                     result.Tasks.Add(new PlannerTaskViewModel
                     {
                         Id = task.Id ?? "",
@@ -229,7 +281,9 @@ public class GraphOrgService
                         DueDateTime = task.DueDateTime,
                         PercentComplete = task.PercentComplete,
                         Priority = task.Priority,
-                        AssignedUserIds = task.Assignments?.AdditionalData?.Keys.ToList() ?? new List<string>()
+                        AssignedUserIds = task.Assignments?.AdditionalData?.Keys.ToList() ?? new List<string>(),
+                        ChecklistItems = checklistItems,
+                        Description = description
                     });
                 }
             }

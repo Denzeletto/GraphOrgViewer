@@ -6,44 +6,6 @@
 
 <h2>Zadania działu: @Model.DepartmentName</h2>
 
-<form method="get" asp-controller="Tasks" asp-action="Department" class="mb-4">
-    <input type="hidden" name="departmentName" value="@Model.DepartmentName" />
-
-    <h5>Wyklucz osoby z agregacji:</h5>
-
-    @if (!Model.Users.Any())
-    {
-        <p class="text-muted">Nie znaleziono użytkowników w tym dziale.</p>
-    }
-    else
-    {
-        @foreach (var user in Model.Users)
-        {
-            <div class="form-check">
-                <input class="form-check-input"
-                       type="checkbox"
-                       name="excludedUserIds"
-                       value="@user.Id"
-                       id="user_@user.Id"
-                       checked="@Model.ExcludedUserIds.Contains(user.Id ?? "")" />
-
-                <label class="form-check-label" for="user_@user.Id">
-                    @user.DisplayName
-                    <span class="text-muted">
-                        (@user.JobTitle)
-                    </span>
-                </label>
-            </div>
-        }
-
-        <button type="submit" class="btn btn-primary mt-3">
-            Odśwież widok
-        </button>
-    }
-</form>
-
-<hr />
-
 @{
     var usersById = Model.Users
         .Where(u => !string.IsNullOrWhiteSpace(u.Id))
@@ -89,18 +51,45 @@
 }
 else
 {
+    <div class="tasks-toolbar">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="clearFilters">
+            Wyczyść filtry
+        </button>
+
+        <button type="button" class="btn btn-outline-primary btn-sm" id="clearFiltersAndReload">
+            Wyczyść filtry i przeładuj
+        </button>
+    </div>
     <div class="tasks-table-wrapper">
         <table class="tasks-table" id="tasksTable">
-            <thead>
-                <tr>
-                    <th data-sort="text">Osoby <span class="sort-arrow"></span></th>                    
-                    <th data-sort="text">Tytuł <span class="sort-arrow"></span></th>
-                    <th data-sort="date">Termin <span class="sort-arrow"></span></th>
-                    <th data-sort="number">Priorytet <span class="sort-arrow"></span></th>                    
-                    <th data-sort="number">Postęp <span class="sort-arrow"></span></th>
-                    <th data-sort="text">Plan <span class="sort-arrow"></span></th>
-                </tr>
-            </thead>
+        <thead>
+        <tr>
+            <th data-sort="text" data-filter="people">
+                <span class="sort-label">Osoby <span class="sort-arrow"></span></span>
+                <button type="button" class="column-filter-btn">🔎</button>
+            </th>
+            <th data-sort="text" data-filter="title">
+                <span class="sort-label">Tytuł <span class="sort-arrow"></span></span>
+                <button type="button" class="column-filter-btn">🔎</button>
+            </th>
+            <th data-sort="date" data-filter="date">
+                <span class="sort-label">Termin <span class="sort-arrow"></span></span>
+                <button type="button" class="column-filter-btn">🔎</button>
+            </th>
+            <th data-sort="number" data-filter="priority">
+                <span class="sort-label">Priorytet <span class="sort-arrow"></span></span>
+                <button type="button" class="column-filter-btn">🔎</button>
+            </th>
+            <th data-sort="number" data-filter="progress">
+                <span class="sort-label">Postęp <span class="sort-arrow"></span></span>
+                <button type="button" class="column-filter-btn">🔎</button>
+            </th>
+            <th data-sort="text" data-filter="plan">
+                <span class="sort-label">Plan <span class="sort-arrow"></span></span>
+                <button type="button" class="column-filter-btn">🔎</button>
+            </th>
+        </tr>
+        </thead>
 
             <tbody>
                 @foreach (var item in allTasks)
@@ -109,7 +98,14 @@ else
                         data-task-id="@item.Task.Id"
                         data-task-title="@item.Task.Title"
                         data-priority="@(item.Task.Priority ?? 5)"
-                        data-assigned-users="@string.Join(",", item.Task.AssignedUserIds)">          
+                        data-assigned-users="@string.Join(",", item.Task.AssignedUserIds)"
+                        data-people="@string.Join("|", item.AssignedNames)"
+                        data-title="@item.Task.Title"
+                        data-date="@(item.Task.DueDateTime?.ToString("yyyy-MM-dd") ?? "")"
+                        data-plan="@(item.Task.PlanTitle ?? item.Task.PlanId ?? "")"
+                        data-description="@item.Task.Description"
+                        data-progress="@(item.Task.PercentComplete ?? 0)"
+                        data-checklist='@System.Text.Json.JsonSerializer.Serialize(item.Task.ChecklistItems)'>
 
                         <td>
                             <div class="assigned-users">
@@ -118,16 +114,20 @@ else
                                     <span class="assigned-user-badge">@name</span>
                                 }
                             </div>
-                        </td>                        
-                        <td>@item.Task.Title</td>
+                        </td>
+
+                       <td>@item.Task.Title</td>
+
                         <td data-value="@(item.Task.DueDateTime?.ToString("yyyy-MM-ddTHH:mm:ss") ?? "")">
                             @(item.Task.DueDateTime?.ToString("yyyy-MM-dd HH:mm") ?? "-")
                         </td>
+
                         @{
                             var priority = item.Task.Priority ?? 5;
 
                             var priorityLabel = priority switch
                             {
+                                <= 1 => "Pilny",
                                 <= 3 => "Wysoki",
                                 <= 5 => "Średni",
                                 _ => "Niski"
@@ -135,6 +135,7 @@ else
 
                             var priorityClass = priority switch
                             {
+                                <= 1 => "priority-urgent",
                                 <= 3 => "priority-high",
                                 <= 5 => "priority-medium",
                                 _ => "priority-low"
@@ -145,16 +146,34 @@ else
                             <span class="priority-badge @priorityClass">
                                 @priorityLabel
                             </span>
-                        </td>                        
+                        </td>
+
                         <td data-value="@(item.Task.PercentComplete ?? 0)">
                             @(item.Task.PercentComplete?.ToString() ?? "-")%
                         </td>
+
                         <td>@(item.Task.PlanTitle ?? item.Task.PlanId ?? "-")</td>
                     </tr>
                 }
             </tbody>
         </table>
+        <div id="columnFilterPanel" class="column-filter-panel">
+            <div class="filter-header">
+                <strong id="filterTitle">Filtr</strong>
+                <button type="button" id="closeFilterPanel">×</button>
+            </div>
 
+            <div id="filterContent"></div>
+
+            <div class="filter-actions">
+                <button type="button" class="btn btn-sm btn-secondary" id="clearCurrentFilter">
+                    Wyczyść
+                </button>
+                <button type="button" class="btn btn-sm btn-primary" id="applyCurrentFilter">
+                    Zastosuj
+                </button>
+            </div>
+        </div>
         <div class="modal fade" id="taskEditModal" tabindex="-1">
             <div class="modal-dialog">
                 <form method="post" asp-controller="Tasks" asp-action="UpdateTask" class="modal-content">
@@ -193,6 +212,15 @@ else
                                 </div>
                             }
                         </div>
+                        <hr />
+
+                        <label class="form-label">Notatka</label>
+                        <div id="editTaskDescription" class="task-description-preview"></div>
+
+                        <hr />
+
+                        <label class="form-label">Lista kontrolna</label>
+                        <div id="editChecklistItems" class="checklist-preview"></div>
                     </div>
 
                     <div class="modal-footer">
@@ -327,90 +355,471 @@ else
         font-size: 12px;
         font-weight: 600;
     }
+
+    .tasks-table th {
+        position: relative;
+    }
+
+    .sort-label {
+        cursor: pointer;
+    }
+
+    .column-filter-btn {
+        border: 0;
+        background: transparent;
+        margin-left: 6px;
+        cursor: pointer;
+        opacity: 0.65;
+        font-size: 13px;
+    }
+
+    .column-filter-btn:hover {
+        opacity: 1;
+    }
+
+    .column-filter-btn.active {
+        background: #dbeafe;
+        color: #1d4ed8;
+        border-radius: 6px;
+    }
+
+    .column-filter-panel {
+        display: none;
+        position: fixed;
+        z-index: 10000;
+        width: 280px;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2);
+        padding: 14px;
+    }
+
+    .filter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .filter-header button {
+        border: 0;
+        background: #111827;
+        color: white;
+        border-radius: 8px;
+        width: 28px;
+        height: 28px;
+    }
+
+    .filter-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 14px;
+    }
+
+    .filter-check-list {
+        max-height: 220px;
+        overflow-y: auto;
+        display: grid;
+        gap: 6px;
+    }
+
+    .filter-input {
+        width: 100%;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 8px 10px;
+    }
+
+
+    .tasks-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 12px;
+    }
+
+    .tasks-table {
+        table-layout: fixed;
+    }
+
+    .tasks-table th:nth-child(1),
+    .tasks-table td:nth-child(1) {
+        width: 260px;
+        min-width: 260px;
+    }
+
+    .assigned-users {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .assigned-user-badge {
+        white-space: nowrap;
+    }
+
+    .task-description-preview {
+        white-space: pre-wrap;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px;
+        color: #374151;
+        font-size: 14px;
+        max-height: 180px;
+        overflow-y: auto;
+    }
 </style>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const table = document.getElementById("tasksTable");
+document.addEventListener("DOMContentLoaded", function () {
+    const table = document.getElementById("tasksTable");
+    const panel = document.getElementById("columnFilterPanel");
+    const filterContent = document.getElementById("filterContent");
+    const filterTitle = document.getElementById("filterTitle");
+    const closeBtn = document.getElementById("closeFilterPanel");
+    const applyBtn = document.getElementById("applyCurrentFilter");
+    const clearBtn = document.getElementById("clearCurrentFilter");
+    const clearFiltersBtn = document.getElementById("clearFilters");
+    const clearFiltersAndReloadBtn = document.getElementById("clearFiltersAndReload");
 
-        if (!table) {
-            return;
+    if (!table || !panel) return;
+
+    const headers = table.querySelectorAll("th");
+    const tbody = table.querySelector("tbody");
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+
+    const filters = {
+        people: new Set(),
+        priority: new Set(),
+        progress: new Set(),
+        title: "",
+        plan: "",
+        dateFrom: "",
+        dateTo: ""
+    };
+
+    let activeFilter = null;
+
+    function getPriorityLabel(value) {
+        const priority = parseInt(value || "5");
+
+        if (priority <= 3) return "Wysoki";
+        if (priority <= 5) return "Średni";
+        return "Niski";
+    }
+
+    function getProgressLabel(value) {
+        const progress = parseInt(value || "0");
+
+        if (progress >= 100) return "Zakończone";
+        if (progress > 0) return "W trakcie";
+        return "Nierozpoczęte";
+    }
+
+    function getUniquePeople() {
+        const names = new Set();
+
+        rows.forEach(row => {
+            (row.dataset.people || "")
+                .split("|")
+                .filter(Boolean)
+                .forEach(name => names.add(name));
+        });
+
+        return Array.from(names).sort();
+    }
+
+    function renderCheckboxFilter(values, selectedSet, name) {
+        return `
+            <div class="filter-check-list">
+                ${values.map(value => `
+                    <label>
+                        <input type="checkbox"
+                               class="filter-checkbox"
+                               data-filter-name="${name}"
+                               value="${value}"
+                               ${selectedSet.has(value) ? "checked" : ""}>
+                        ${value}
+                    </label>
+                `).join("")}
+            </div>
+        `;
+    }
+
+    function openFilter(filterName, button) {
+        activeFilter = filterName;
+
+        document.querySelectorAll(".column-filter-btn").forEach(x => x.classList.remove("active"));
+        button.classList.add("active");
+
+        const rect = button.getBoundingClientRect();
+        panel.style.left = `${rect.left}px`;
+        panel.style.top = `${rect.bottom + 8}px`;
+        panel.style.display = "block";
+
+        if (filterName === "people") {
+            filterTitle.innerText = "Filtr osób";
+            filterContent.innerHTML = renderCheckboxFilter(getUniquePeople(), filters.people, "people");
         }
 
-        const headers = table.querySelectorAll("th");
-        const tbody = table.querySelector("tbody");
+        if (filterName === "priority") {
+            filterTitle.innerText = "Filtr priorytetu";
+            filterContent.innerHTML = renderCheckboxFilter(["Wysoki", "Średni", "Niski"], filters.priority, "priority");
+        }
 
-        headers.forEach((header, columnIndex) => {
-            header.addEventListener("click", function () {
-                const currentDirection = header.classList.contains("sorted-asc")
-                    ? "asc"
-                    : header.classList.contains("sorted-desc")
-                        ? "desc"
-                        : null;
+        if (filterName === "progress") {
+            filterTitle.innerText = "Filtr postępu";
+            filterContent.innerHTML = renderCheckboxFilter(["Nierozpoczęte", "W trakcie", "Zakończone"], filters.progress, "progress");
+        }
 
-                const newDirection = currentDirection === "asc" ? "desc" : "asc";
-                const sortType = header.dataset.sort;
+        if (filterName === "title") {
+            filterTitle.innerText = "Filtr tytułu";
+            filterContent.innerHTML = `
+                <input class="filter-input" id="titleFilterInput" value="${filters.title}" placeholder="Wpisz fragment tytułu">
+            `;
+        }
 
-                headers.forEach(h => {
-                    h.classList.remove("sorted-asc", "sorted-desc");
-                });
+        if (filterName === "plan") {
+            filterTitle.innerText = "Filtr planu";
+            filterContent.innerHTML = `
+                <input class="filter-input" id="planFilterInput" value="${filters.plan}" placeholder="Wpisz fragment planu">
+            `;
+        }
 
-                header.classList.add(newDirection === "asc" ? "sorted-asc" : "sorted-desc");
+        if (filterName === "date") {
+            filterTitle.innerText = "Filtr terminu";
+            filterContent.innerHTML = `
+                <label>Od</label>
+                <input type="date" class="filter-input mb-2" id="dateFromInput" value="${filters.dateFrom}">
+                <label>Do</label>
+                <input type="date" class="filter-input" id="dateToInput" value="${filters.dateTo}">
+            `;
+        }
+    }
 
-                const rows = Array.from(tbody.querySelectorAll("tr"));
+    function saveCurrentFilter() {
+        if (!activeFilter) return;
 
-                rows.sort((a, b) => {
-                    const aCell = a.children[columnIndex];
-                    const bCell = b.children[columnIndex];
+        if (activeFilter === "people") {
+            filters.people = new Set(
+                Array.from(document.querySelectorAll('.filter-checkbox[data-filter-name="people"]:checked'))
+                    .map(x => x.value)
+            );
+        }
 
-                    let aValue = aCell.dataset.value || aCell.innerText.trim();
-                    let bValue = bCell.dataset.value || bCell.innerText.trim();
+        if (activeFilter === "priority") {
+            filters.priority = new Set(
+                Array.from(document.querySelectorAll('.filter-checkbox[data-filter-name="priority"]:checked'))
+                    .map(x => x.value)
+            );
+        }
 
-                    if (sortType === "number") {
-                        aValue = parseFloat(aValue) || 0;
-                        bValue = parseFloat(bValue) || 0;
-                    }
+        if (activeFilter === "progress") {
+            filters.progress = new Set(
+                Array.from(document.querySelectorAll('.filter-checkbox[data-filter-name="progress"]:checked'))
+                    .map(x => x.value)
+            );
+        }
 
-                    if (sortType === "date") {
-                        aValue = aValue ? new Date(aValue).getTime() : Number.MAX_SAFE_INTEGER;
-                        bValue = bValue ? new Date(bValue).getTime() : Number.MAX_SAFE_INTEGER;
-                    }
+        if (activeFilter === "title") {
+            filters.title = document.getElementById("titleFilterInput").value.trim().toLowerCase();
+        }
 
-                    if (sortType === "text") {
-                        aValue = aValue.toLowerCase();
-                        bValue = bValue.toLowerCase();
-                    }
+        if (activeFilter === "plan") {
+            filters.plan = document.getElementById("planFilterInput").value.trim().toLowerCase();
+        }
 
-                    if (aValue < bValue) {
-                        return newDirection === "asc" ? -1 : 1;
-                    }
+        if (activeFilter === "date") {
+            filters.dateFrom = document.getElementById("dateFromInput").value;
+            filters.dateTo = document.getElementById("dateToInput").value;
+        }
+    }
 
-                    if (aValue > bValue) {
-                        return newDirection === "asc" ? 1 : -1;
-                    }
+    function clearCurrentFilter() {
+        if (!activeFilter) return;
 
-                    return 0;
-                });
+        if (activeFilter === "people") filters.people.clear();
+        if (activeFilter === "priority") filters.priority.clear();
+        if (activeFilter === "progress") filters.progress.clear();
+        if (activeFilter === "title") filters.title = "";
+        if (activeFilter === "plan") filters.plan = "";
+        if (activeFilter === "date") {
+            filters.dateFrom = "";
+            filters.dateTo = "";
+        }
 
-                rows.forEach(row => tbody.appendChild(row));
+        applyFilters();
+        closePanel();
+    }
+
+    function closePanel() {
+        panel.style.display = "none";
+        activeFilter = null;
+        document.querySelectorAll(".column-filter-btn").forEach(x => x.classList.remove("active"));
+    }
+
+    function applyFilters() {
+        rows.forEach(row => {
+            const people = (row.dataset.people || "").split("|").filter(Boolean);
+            const title = (row.dataset.title || "").toLowerCase();
+            const plan = (row.dataset.plan || "").toLowerCase();
+            const date = row.dataset.date || "";
+            const priorityLabel = getPriorityLabel(row.dataset.priority);
+            const progressLabel = getProgressLabel(row.dataset.progress);
+
+            let visible = true;
+
+            if (filters.people.size > 0) {
+                visible = visible && people.some(person => filters.people.has(person));
+            }
+
+            if (filters.priority.size > 0) {
+                visible = visible && filters.priority.has(priorityLabel);
+            }
+
+            if (filters.progress.size > 0) {
+                visible = visible && filters.progress.has(progressLabel);
+            }
+
+            if (filters.title) {
+                visible = visible && title.includes(filters.title);
+            }
+
+            if (filters.plan) {
+                visible = visible && plan.includes(filters.plan);
+            }
+
+            if (filters.dateFrom) {
+                visible = visible && date && date >= filters.dateFrom;
+            }
+
+            if (filters.dateTo) {
+                visible = visible && date && date <= filters.dateTo;
+            }
+
+            row.style.display = visible ? "" : "none";
+        });
+    }
+    function resetAllFiltersWithoutReload() {
+        filters.people.clear();
+        filters.priority.clear();
+        filters.progress.clear();
+        filters.title = "";
+        filters.plan = "";
+        filters.dateFrom = "";
+        filters.dateTo = "";
+
+        rows.forEach(row => {
+            row.style.display = "";
+        });
+
+        headers.forEach(h => {
+            h.classList.remove("sorted-asc", "sorted-desc");
+        });
+
+        closePanel();
+    }
+
+    headers.forEach((header, columnIndex) => {
+        const label = header.querySelector(".sort-label");
+        const filterBtn = header.querySelector(".column-filter-btn");
+
+        label.addEventListener("click", function () {
+            const currentDirection = header.classList.contains("sorted-asc")
+                ? "asc"
+                : header.classList.contains("sorted-desc")
+                    ? "desc"
+                    : null;
+
+            const newDirection = currentDirection === "asc" ? "desc" : "asc";
+            const sortType = header.dataset.sort;
+
+            headers.forEach(h => h.classList.remove("sorted-asc", "sorted-desc"));
+            header.classList.add(newDirection === "asc" ? "sorted-asc" : "sorted-desc");
+
+            const sortedRows = Array.from(tbody.querySelectorAll("tr"));
+
+            sortedRows.sort((a, b) => {
+                const aCell = a.children[columnIndex];
+                const bCell = b.children[columnIndex];
+
+                let aValue = aCell.dataset.value || aCell.innerText.trim();
+                let bValue = bCell.dataset.value || bCell.innerText.trim();
+
+                if (sortType === "number") {
+                    aValue = parseFloat(aValue) || 0;
+                    bValue = parseFloat(bValue) || 0;
+                }
+
+                if (sortType === "date") {
+                    aValue = aValue ? new Date(aValue).getTime() : Number.MAX_SAFE_INTEGER;
+                    bValue = bValue ? new Date(bValue).getTime() : Number.MAX_SAFE_INTEGER;
+                }
+
+                if (sortType === "text") {
+                    aValue = aValue.toLowerCase();
+                    bValue = bValue.toLowerCase();
+                }
+
+                if (aValue < bValue) return newDirection === "asc" ? -1 : 1;
+                if (aValue > bValue) return newDirection === "asc" ? 1 : -1;
+                return 0;
             });
+
+            sortedRows.forEach(row => tbody.appendChild(row));
+        });
+
+        filterBtn.addEventListener("click", function (event) {
+            event.stopPropagation();
+            openFilter(header.dataset.filter, filterBtn);
         });
     });
-</script>
 
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const rows = document.querySelectorAll(".task-row");
-        const modalElement = document.getElementById("taskEditModal");
+    applyBtn.addEventListener("click", function () {
+        saveCurrentFilter();
+        applyFilters();
+        closePanel();
+    });
 
-        if (!modalElement) {
-            return;
+    panel.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+
+            saveCurrentFilter();
+            applyFilters();
+            closePanel();
         }
+    });
 
+    clearBtn.addEventListener("click", clearCurrentFilter);
+    closeBtn.addEventListener("click", closePanel);
+
+   if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener("click", function () {
+            resetAllFiltersWithoutReload();
+        });
+    }
+
+    if (clearFiltersAndReloadBtn) {
+        clearFiltersAndReloadBtn.addEventListener("click", function () {
+            resetAllFiltersWithoutReload();
+            window.location.reload();
+        });
+    }
+    const modalElement = document.getElementById("taskEditModal");
+
+    if (modalElement) {
         const modal = new bootstrap.Modal(modalElement);
 
         rows.forEach(row => {
-            row.addEventListener("click", function () {
+            row.addEventListener("click", function (event) {
+                if (event.target.closest("button, a, input, select, label")) {
+                    return;
+                }
+
                 const taskId = row.dataset.taskId;
                 const title = row.dataset.taskTitle;
                 const priority = row.dataset.priority;
@@ -426,8 +835,41 @@ else
                     checkbox.checked = assignedUsers.includes(checkbox.value);
                 });
 
+                const checklistRaw = row.dataset.checklist || "[]";
+                console.log("Checklist raw:", checklistRaw);
+                const checklistContainer = document.getElementById("editChecklistItems");
+
+                let checklist = [];
+
+                try {
+                    checklist = JSON.parse(checklistRaw);
+                } catch {
+                    checklist = [];
+                }
+
+                if (checklistContainer) {
+                    if (checklist.length === 0) {
+                        checklistContainer.innerHTML = `<div class="text-muted">Brak elementów listy kontrolnej.</div>`;
+                    } else {
+                        checklistContainer.innerHTML = checklist.map(item => `
+                            <div class="checklist-preview-item ${item.IsChecked ? "done" : ""}">
+                                <span class="checklist-dot">${item.IsChecked ? "✓" : "○"}</span>
+                                <span>${item.Title || "(bez nazwy)"}</span>
+                            </div>
+                        `).join("");
+                    }
+                }
+
+                const description = row.dataset.description || "";
+                const descriptionContainer = document.getElementById("editTaskDescription");
+
+                if (descriptionContainer) {
+                    descriptionContainer.innerText = description || "Brak notatki.";
+                }
+
                 modal.show();
             });
         });
-    });
+    }
+});
 </script>
