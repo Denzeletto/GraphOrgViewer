@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GraphOrgViewer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+00e7ba962dba7566d483539ac32a1fa166117e76")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+14aadf4091736a12fff3d3630a52b387aa9e6f9a")]
 [assembly: System.Reflection.AssemblyProductAttribute("GraphOrgViewer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GraphOrgViewer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

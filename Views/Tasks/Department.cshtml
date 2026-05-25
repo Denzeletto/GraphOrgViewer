@@ -52,6 +52,18 @@
 else
 {
     <div class="tasks-toolbar">
+        <select id="pageSizeSelect" class="form-select form-select-sm tasks-page-size">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+        </select>
+
+        <div class="tasks-pagination">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="prevPage">Poprzednia</button>
+            <span id="pageInfo"></span>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="nextPage">Następna</button>
+        </div>
+
         <button type="button" class="btn btn-outline-secondary btn-sm" id="clearFilters">
             Wyczyść filtry
         </button>
@@ -60,6 +72,7 @@ else
             Wyczyść filtry i przeładuj
         </button>
     </div>
+
     <div class="tasks-table-wrapper">
         <table class="tasks-table" id="tasksTable">
         <thead>
@@ -148,8 +161,28 @@ else
                             </span>
                         </td>
 
-                        <td data-value="@(item.Task.PercentComplete ?? 0)">
-                            @(item.Task.PercentComplete?.ToString() ?? "-")%
+                        @{
+                            var progress = item.Task.PercentComplete ?? 0;
+
+                            var progressLabel = progress switch
+                            {
+                                >= 100 => "Zakończone",
+                                > 0 => "W trakcie",
+                                _ => "Nierozpoczęte"
+                            };
+
+                            var progressClass = progress switch
+                            {
+                                >= 100 => "progress-completed",
+                                > 0 => "progress-in-progress",
+                                _ => "progress-not-started"
+                            };
+                        }
+
+                        <td data-value="@progress">
+                            <span class="progress-badge @progressClass">
+                                @progressLabel
+                            </span>
                         </td>
 
                         <td>@(item.Task.PlanTitle ?? item.Task.PlanId ?? "-")</td>
@@ -471,6 +504,58 @@ else
         max-height: 180px;
         overflow-y: auto;
     }
+
+    .tasks-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .tasks-page-size {
+        width: 80px;
+    }
+
+    .tasks-pagination {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    #pageInfo {
+        font-size: 13px;
+        color: #374151;
+    }
+
+    .priority-urgent {
+        background: #ffedd5;
+        color: #9a3412;
+        border: 1px solid #fb923c;
+    }
+
+    .progress-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .progress-not-started {
+        background: #f3f4f6;
+        color: #374151;
+    }
+
+    .progress-in-progress {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .progress-completed {
+        background: #dcfce7;
+        color: #166534;
+    }
 </style>
 
 <script>
@@ -491,12 +576,21 @@ document.addEventListener("DOMContentLoaded", function () {
     const tbody = table.querySelector("tbody");
     const rows = Array.from(tbody.querySelectorAll("tr"));
 
+    const pageSizeSelect = document.getElementById("pageSizeSelect");
+    const prevPageBtn = document.getElementById("prevPage");
+    const nextPageBtn = document.getElementById("nextPage");
+    const pageInfo = document.getElementById("pageInfo");
+
+    let currentPage = 1;
+
+    const defaultProgressFilters = ["Nierozpoczęte", "W trakcie"];
+
     const filters = {
         people: new Set(),
         priority: new Set(),
-        progress: new Set(),
+        progress: new Set(defaultProgressFilters),
         title: "",
-        plan: "",
+        plan: new Set(),
         dateFrom: "",
         dateTo: ""
     };
@@ -506,6 +600,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function getPriorityLabel(value) {
         const priority = parseInt(value || "5");
 
+        if (priority <= 1) return "Pilny";
         if (priority <= 3) return "Wysoki";
         if (priority <= 5) return "Średni";
         return "Niski";
@@ -530,6 +625,19 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         return Array.from(names).sort();
+    }
+
+    function getUniquePlans() {
+        const plans = new Set();
+
+        rows.forEach(row => {
+            const plan = row.dataset.plan || "";
+            if (plan) {
+                plans.add(plan);
+            }
+        });
+
+        return Array.from(plans).sort();
     }
 
     function renderCheckboxFilter(values, selectedSet, name) {
@@ -567,7 +675,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (filterName === "priority") {
             filterTitle.innerText = "Filtr priorytetu";
-            filterContent.innerHTML = renderCheckboxFilter(["Wysoki", "Średni", "Niski"], filters.priority, "priority");
+            filterContent.innerHTML = renderCheckboxFilter(["Pilny", "Wysoki", "Średni", "Niski"], filters.priority, "priority");        
         }
 
         if (filterName === "progress") {
@@ -584,9 +692,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (filterName === "plan") {
             filterTitle.innerText = "Filtr planu";
-            filterContent.innerHTML = `
-                <input class="filter-input" id="planFilterInput" value="${filters.plan}" placeholder="Wpisz fragment planu">
-            `;
+            filterContent.innerHTML = renderCheckboxFilter(getUniquePlans(), filters.plan, "plan");
         }
 
         if (filterName === "date") {
@@ -629,7 +735,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (activeFilter === "plan") {
-            filters.plan = document.getElementById("planFilterInput").value.trim().toLowerCase();
+            filters.plan = new Set(
+                Array.from(document.querySelectorAll('.filter-checkbox[data-filter-name="plan"]:checked'))
+                    .map(x => x.value)
+            );
         }
 
         if (activeFilter === "date") {
@@ -645,7 +754,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (activeFilter === "priority") filters.priority.clear();
         if (activeFilter === "progress") filters.progress.clear();
         if (activeFilter === "title") filters.title = "";
-        if (activeFilter === "plan") filters.plan = "";
+        if (activeFilter === "plan") filters.plan.clear();        
         if (activeFilter === "date") {
             filters.dateFrom = "";
             filters.dateTo = "";
@@ -661,14 +770,14 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".column-filter-btn").forEach(x => x.classList.remove("active"));
     }
 
-    function applyFilters() {
-        rows.forEach(row => {
+    function getFilteredRows() {
+        return rows.filter(row => {
             const people = (row.dataset.people || "").split("|").filter(Boolean);
             const title = (row.dataset.title || "").toLowerCase();
-            const plan = (row.dataset.plan || "").toLowerCase();
             const date = row.dataset.date || "";
             const priorityLabel = getPriorityLabel(row.dataset.priority);
             const progressLabel = getProgressLabel(row.dataset.progress);
+            const plan = row.dataset.plan || "";
 
             let visible = true;
 
@@ -688,8 +797,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 visible = visible && title.includes(filters.title);
             }
 
-            if (filters.plan) {
-                visible = visible && plan.includes(filters.plan);
+            if (filters.plan.size > 0) {
+                visible = visible && filters.plan.has(plan);
             }
 
             if (filters.dateFrom) {
@@ -700,27 +809,68 @@ document.addEventListener("DOMContentLoaded", function () {
                 visible = visible && date && date <= filters.dateTo;
             }
 
-            row.style.display = visible ? "" : "none";
+            return visible;
         });
     }
+
+    function renderPage() {
+        const filteredRows = getFilteredRows();
+        const pageSize = parseInt(pageSizeSelect?.value || "10");
+        const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+
+        if (currentPage < 1) {
+            currentPage = 1;
+        }
+
+        rows.forEach(row => {
+            row.style.display = "none";
+        });
+
+        filteredRows
+            .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+            .forEach(row => {
+                row.style.display = "";
+            });
+
+        if (pageInfo) {
+            pageInfo.innerText = `Strona ${currentPage} z ${totalPages} (${filteredRows.length} zadań)`;
+        }
+
+        if (prevPageBtn) {
+            prevPageBtn.disabled = currentPage <= 1;
+        }
+
+        if (nextPageBtn) {
+            nextPageBtn.disabled = currentPage >= totalPages;
+        }
+    }
+
     function resetAllFiltersWithoutReload() {
         filters.people.clear();
         filters.priority.clear();
-        filters.progress.clear();
+        filters.progress = new Set(defaultProgressFilters);
         filters.title = "";
-        filters.plan = "";
+        filters.plan.clear();
         filters.dateFrom = "";
         filters.dateTo = "";
 
-        rows.forEach(row => {
-            row.style.display = "";
-        });
+        currentPage = 1;
 
         headers.forEach(h => {
             h.classList.remove("sorted-asc", "sorted-desc");
         });
 
         closePanel();
+        renderPage();
+    }
+
+    function applyFilters() {
+        currentPage = 1;
+        renderPage();
     }
 
     headers.forEach((header, columnIndex) => {
@@ -809,6 +959,26 @@ document.addEventListener("DOMContentLoaded", function () {
             window.location.reload();
         });
     }
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener("change", function () {
+            currentPage = 1;
+            renderPage();
+        });
+    }
+
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener("click", function () {
+            currentPage--;
+            renderPage();
+        });
+    }
+
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener("click", function () {
+            currentPage++;
+            renderPage();
+        });
+    }
     const modalElement = document.getElementById("taskEditModal");
 
     if (modalElement) {
@@ -836,7 +1006,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
 
                 const checklistRaw = row.dataset.checklist || "[]";
-                console.log("Checklist raw:", checklistRaw);
                 const checklistContainer = document.getElementById("editChecklistItems");
 
                 let checklist = [];
@@ -871,5 +1040,6 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         });
     }
+    applyFilters();
 });
 </script>
