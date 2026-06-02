@@ -9,13 +9,14 @@ namespace GraphOrgViewer.Services;
 public class GraphOrgService
 {
     private readonly GraphServiceClient _graphClient;
+    private readonly IConfiguration _configuration;
 
     public GraphOrgService(IConfiguration configuration)
     {
         var tenantId = configuration["Graph:TenantId"];
         var clientId = configuration["Graph:ClientId"];
         var clientSecret = configuration["Graph:ClientSecret"];
-
+        _configuration = configuration;
         if (string.IsNullOrWhiteSpace(tenantId) ||
             string.IsNullOrWhiteSpace(clientId) ||
             string.IsNullOrWhiteSpace(clientSecret))
@@ -450,5 +451,79 @@ public class GraphOrgService
             return "Serwis";
 
         return null;
+    }
+
+    public async Task<List<RoomBusySlotViewModel>> GetRoomCalendarAsync(
+    string roomEmail,
+    DateTime start,
+    DateTime end)
+    {
+        var events = await _graphClient.Users[roomEmail].Calendar.CalendarView.GetAsync(request =>
+        {
+            request.QueryParameters.StartDateTime = start.ToString("o");
+            request.Headers.Add(
+                "Prefer",
+                "outlook.timezone=\"Central European Standard Time\"");
+            request.QueryParameters.EndDateTime = end.ToString("o");
+            request.QueryParameters.Select =
+            [
+                "subject",
+                "start",
+                "end",
+                "showAs",
+                "organizer"
+            ];
+            request.QueryParameters.Orderby = ["start/dateTime"];
+        });
+
+        return events?.Value?.Select(e => new RoomBusySlotViewModel
+        {
+            Subject = e.Subject,
+            Start = e.Start?.DateTime,
+            End = e.End?.DateTime,
+            Status = e.ShowAs?.ToString()
+        }).ToList() ?? [];
+    }
+    public List<RoomViewModel> GetConfiguredRooms()
+    {
+        return _configuration
+            .GetSection("Rooms")
+            .Get<List<RoomViewModel>>() ?? [];
+    }
+
+    public async Task<List<RoomCalendarEventViewModel>> GetRoomCalendarAsync(
+    string roomEmail,
+    DateTime date)
+    {
+        var start = date.Date;
+        var end = date.Date.AddDays(1);
+
+        var events = await _graphClient.Users[roomEmail].Calendar.CalendarView.GetAsync(request =>
+        {
+            request.QueryParameters.StartDateTime = start.ToString("o");
+            request.QueryParameters.EndDateTime = end.ToString("o");
+            request.Headers.Add(
+                "Prefer",
+                "outlook.timezone=\"Central European Standard Time\"");
+            request.QueryParameters.Select =
+            [
+                "subject",
+                "start",
+                "end",
+                "showAs",
+                "organizer"
+            ];
+
+            request.QueryParameters.Orderby = ["start/dateTime"];
+        });
+
+        return events?.Value?.Select(e => new RoomCalendarEventViewModel
+        {
+            Subject = e.Subject ?? "(zajęte)",
+            Organizer = e.Organizer?.EmailAddress?.Name ?? "",
+            Start = DateTime.Parse(e.Start?.DateTime ?? start.ToString("o")),
+            End = DateTime.Parse(e.End?.DateTime ?? end.ToString("o")),
+            ShowAs = e.ShowAs?.ToString() ?? ""
+        }).ToList() ?? [];
     }
 }

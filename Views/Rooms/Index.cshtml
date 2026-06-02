@@ -1,0 +1,65 @@
+@model GraphOrgViewer.Models.RoomCalendarPageViewModel
+
+@{
+    ViewData["Title"] = "Sale";
+}
+
+<h2>Sale konferencyjne</h2>
+
+<form method="get" class="row g-3 mb-4">
+    <div class="col-md-5">
+        <label class="form-label">Sala</label>
+        <select name="roomEmail" class="form-select">
+            @foreach (var room in Model.Rooms)
+            {
+                <option value="@room.Email" selected="@(room.Email == Model.SelectedRoomEmail)">
+                    @room.Name (@room.Email)
+                </option>
+            }
+        </select>
+    </div>
+
+    <div class="col-md-3">
+        <label class="form-label">Data</label>
+        <input type="date"
+               name="date"
+               class="form-control"
+               value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+    </div>
+
+    <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">
+            Pokaż
+        </button>
+    </div>
+</form>
+
+@if (!Model.Events.Any())
+{
+    <div class="alert alert-success">
+        Sala jest wolna w wybranym dniu.
+    </div>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var item in Model.Events)
+        {
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <strong>@item.Subject</strong>
+                    <span>
+                        @item.Start.ToString("HH:mm") - @item.End.ToString("HH:mm")
+                    </span>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(item.Organizer))
+                {
+                    <small class="text-muted">
+                        Organizator: @item.Organizer
+                    </small>
+                }
+            </div>
+        }
+    </div>
+}
