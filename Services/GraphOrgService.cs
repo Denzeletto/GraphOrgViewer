@@ -526,4 +526,46 @@ public class GraphOrgService
             ShowAs = e.ShowAs?.ToString() ?? ""
         }).ToList() ?? [];
     }
+
+    public async Task BookRoomAsync(
+    string organizerEmail,
+    string roomEmail,
+    DateTime start,
+    DateTime end,
+    string subject)
+    {
+        var newEvent = new Event
+        {
+            Subject = subject,
+            Start = new DateTimeTimeZone
+            {
+                DateTime = start.ToString("yyyy-MM-ddTHH:mm:ss"),
+                TimeZone = "Central European Standard Time"
+            },
+            End = new DateTimeTimeZone
+            {
+                DateTime = end.ToString("yyyy-MM-ddTHH:mm:ss"),
+                TimeZone = "Central European Standard Time"
+            },
+            Location = new Location
+            {
+                DisplayName = roomEmail
+            },
+            Attendees =
+            [
+                new Attendee
+                {
+                    Type = AttendeeType.Resource,
+                    EmailAddress = new EmailAddress
+                    {
+                        Address = roomEmail
+                    }
+                }
+            ]
+        };
+
+        await _graphClient.Users[organizerEmail]
+            .Events
+            .PostAsync(newEvent);
+    }
 }

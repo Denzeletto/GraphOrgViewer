@@ -6,4 +6,5 @@ public class RoomCalendarPageViewModel
     public string? SelectedRoomEmail { get; set; }
     public DateTime SelectedDate { get; set; } = DateTime.Today;
     public List<RoomCalendarEventViewModel> Events { get; set; } = [];
+    public List<GraphUserViewModel> Users { get; set; } = [];
 }

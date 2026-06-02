@@ -1,65 +1,813 @@
+
 @model GraphOrgViewer.Models.RoomCalendarPageViewModel
+@using System.Text.Json
 
 @{
     ViewData["Title"] = "Sale";
+
+    var previousDay = Model.SelectedDate.AddDays(-1).ToString("yyyy-MM-dd");
+    var nextDay = Model.SelectedDate.AddDays(1).ToString("yyyy-MM-dd");
+
+    var selectedRoom = Model.Rooms.FirstOrDefault(x => x.Email == Model.SelectedRoomEmail);
+
+    var slots = new List<DateTime>();
+    var startDay = Model.SelectedDate.Date.AddHours(7);
+    var endDay = Model.SelectedDate.Date.AddHours(18);
+
+    for (var time = startDay; time < endDay; time = time.AddMinutes(30))
+    {
+        slots.Add(time);
+    }
+
+    bool IsBusy(DateTime slotStart)
+    {
+        var slotEnd = slotStart.AddMinutes(30);
+
+        return Model.Events.Any(e =>
+            e.Start < slotEnd &&
+            e.End > slotStart);
+    }
+
+    var organizerUsers = Model.Users ?? new List<GraphOrgViewer.Models.GraphUserViewModel>();
 }
-
-<h2>Sale konferencyjne</h2>
-
-<form method="get" class="row g-3 mb-4">
-    <div class="col-md-5">
-        <label class="form-label">Sala</label>
-        <select name="roomEmail" class="form-select">
-            @foreach (var room in Model.Rooms)
-            {
-                <option value="@room.Email" selected="@(room.Email == Model.SelectedRoomEmail)">
-                    @room.Name (@room.Email)
-                </option>
-            }
-        </select>
-    </div>
-
-    <div class="col-md-3">
-        <label class="form-label">Data</label>
-        <input type="date"
-               name="date"
-               class="form-control"
-               value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
-    </div>
-
-    <div class="col-md-2 d-flex align-items-end">
-        <button type="submit" class="btn btn-primary w-100">
-            Pokaż
-        </button>
-    </div>
-</form>
-
-@if (!Model.Events.Any())
+@if (string.IsNullOrWhiteSpace(Model.SelectedRoomEmail))
 {
-    <div class="alert alert-success">
-        Sala jest wolna w wybranym dniu.
-    </div>
-}
-else
-{
-    <div class="list-group">
-        @foreach (var item in Model.Events)
-        {
-            <div class="list-group-item">
-                <div class="d-flex justify-content-between">
-                    <strong>@item.Subject</strong>
-                    <span>
-                        @item.Start.ToString("HH:mm") - @item.End.ToString("HH:mm")
-                    </span>
-                </div>
+    <div class="room-select-screen">
+        <div class="room-select-card">
+            <h1>Wybierz salę</h1>
+            <p>Wskaż salę, dla której chcesz uruchomić kiosk rezerwacji.</p>
 
-                @if (!string.IsNullOrWhiteSpace(item.Organizer))
+            <div class="room-select-grid">
+                @foreach (var room in Model.Rooms)
                 {
-                    <small class="text-muted">
-                        Organizator: @item.Organizer
-                    </small>
+                    <a class="room-select-tile"
+                    asp-controller="Rooms"
+                    asp-action="Index"
+                    asp-route-roomEmail="@room.Email"
+                    asp-route-date="@Model.SelectedDate.ToString("yyyy-MM-dd")">
+                        <span>@room.Name</span>
+                        <small>@room.Email</small>
+                    </a>
                 }
             </div>
-        }
+        </div>
     </div>
+
+    <style>
+        header,
+        .navbar,
+        footer {
+            display: none !important;
+        }
+
+        body {
+            background: #f4f6f9;
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: none !important;
+            width: 100% !important;
+            padding: 0 !important;
+        }
+
+        .room-select-screen {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+        }
+
+        .room-select-card {
+            width: min(1100px, 100%);
+            background: white;
+            border-radius: 28px;
+            padding: 36px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+        }
+
+        .room-select-card h1 {
+            font-size: 42px;
+            font-weight: 800;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .room-select-card p {
+            color: #6b7280;
+            font-size: 20px;
+            margin-bottom: 28px;
+        }
+
+        .room-select-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 18px;
+        }
+
+        .room-select-tile {
+            min-height: 130px;
+            padding: 24px;
+            border-radius: 22px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            text-decoration: none;
+            color: #111827;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+            transition: 0.15s ease;
+        }
+
+        .room-select-tile:hover {
+            transform: translateY(-3px);
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: white;
+        }
+
+        .room-select-tile span {
+            display: block;
+            font-size: 26px;
+            font-weight: 800;
+        }
+
+        .room-select-tile small {
+            display: block;
+            margin-top: 10px;
+            font-size: 15px;
+            opacity: 0.8;
+        }
+    </style>
+
+    return;
 }
+<div class="rooms-wrapper">
+    <div class="rooms-header">
+        <div>
+            <h2 class="rooms-title">@(selectedRoom?.Name ?? "Sala")</h2>
+        </div>
+
+        <div class="day-nav">
+            <a class="day-btn"
+               asp-controller="Rooms"
+               asp-action="Index"
+               asp-route-roomEmail="@Model.SelectedRoomEmail"
+               asp-route-date="@previousDay">
+                ‹
+            </a>
+
+            <div class="day-current">
+                @Model.SelectedDate.ToString("dd.MM.yyyy")
+            </div>
+
+            <a class="day-btn"
+               asp-controller="Rooms"
+               asp-action="Index"
+               asp-route-roomEmail="@Model.SelectedRoomEmail"
+               asp-route-date="@nextDay">
+                ›
+            </a>
+        </div>
+    </div>
+
+    <div class="rooms-layout">
+        <div class="calendar-card">
+            <div class="calendar-grid">
+                @foreach (var slot in slots)
+                {
+                    var busy = IsBusy(slot);
+                    var relatedEvent = Model.Events.FirstOrDefault(e =>
+                        e.Start < slot.AddMinutes(30) &&
+                        e.End > slot);
+
+                    <button type="button"
+                            class="time-slot @(busy ? "busy" : "free")"
+                            data-time="@slot.ToString("yyyy-MM-ddTHH:mm:ss")"
+                            disabled="@(busy ? "disabled" : null)">
+                        <span class="slot-time">@slot.ToString("HH:mm")</span>
+
+                        @if (busy && relatedEvent != null)
+                        {
+                            <span class="slot-title">@relatedEvent.Subject</span>
+                        }
+                        else
+                        {
+                            <span class="slot-title">Wolne</span>
+                        }
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="booking-panel">
+            <h3>Rezerwacja</h3>
+
+            <form method="post" asp-controller="Rooms" asp-action="Book" id="bookingForm">
+                <input type="hidden" name="roomEmail" value="@Model.SelectedRoomEmail" />
+                <input type="hidden" name="date" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+                <input type="hidden" name="start" id="bookingStart" />
+                <input type="hidden" name="end" id="bookingEnd" />
+                <input type="hidden" name="organizerEmail" id="organizerEmail" />
+
+                <div class="booking-summary">
+                    <div class="summary-label">Wybrany termin</div>
+                    <div id="selectedRange" class="summary-value">
+                        Nie wybrano
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Organizator</label>
+                    <input type="text"
+                           id="organizerSearch"
+                           class="form-control"
+                           placeholder="Wpisz pierwsze litery..." />
+
+                    <div id="organizerSuggestions" class="suggestions"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Nazwa spotkania</label>
+                    <input type="text"
+                           name="subject"
+                           class="form-control"
+                           placeholder="Np. Spotkanie projektowe"
+                           />
+                </div>
+
+                <button type="submit" class="book-btn" id="bookBtn" disabled>
+                    Rezerwuj
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    body {
+        background: #f4f6f9;
+    }
+
+    .rooms-wrapper {
+        max-width: 1300px;
+        margin: 30px auto;
+        padding: 24px;
+    }
+
+    .rooms-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        gap: 20px;
+    }
+
+    .rooms-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0;
+    }
+
+    .rooms-subtitle {
+        margin-top: 6px;
+        color: #6b7280;
+        font-size: 15px;
+    }
+
+    .day-nav {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 8px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .day-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: #111827;
+        color: white;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+        line-height: 1;
+        font-weight: 700;
+    }
+
+    .day-btn:hover {
+        background: #2563eb;
+        color: white;
+    }
+
+    .day-current {
+        min-width: 130px;
+        text-align: center;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .rooms-filter {
+        display: grid;
+        grid-template-columns: 1fr 220px 140px;
+        gap: 16px;
+        align-items: end;
+        background: white;
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+        margin-bottom: 22px;
+    }
+
+    .filter-btn,
+    .book-btn {
+        border: 0;
+        border-radius: 12px;
+        background: #111827;
+        color: white;
+        font-weight: 700;
+        padding: 11px 16px;
+        transition: 0.15s ease;
+    }
+
+    .filter-btn:hover,
+    .book-btn:hover {
+        background: #2563eb;
+    }
+
+    .book-btn:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+    }
+
+    .rooms-layout {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 22px;
+        align-items: start;
+    }
+
+    .calendar-card,
+    .booking-panel {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+        padding: 18px;
+    }
+
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+    }
+
+    .time-slot {
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        min-height: 82px;
+        padding: 12px;
+        text-align: left;
+        background: #ffffff;
+        transition: 0.15s ease;
+        cursor: pointer;
+    }
+
+    .time-slot.free:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 26px rgba(15, 23, 42, 0.12);
+        border-color: #2563eb;
+    }
+
+    .time-slot.selected {
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 12px 26px rgba(37, 99, 235, 0.25);
+    }
+
+    .time-slot.busy {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+        color: #6b7280;
+        cursor: not-allowed;
+        opacity: 0.8;
+    }
+
+    .slot-time {
+        display: block;
+        font-weight: 800;
+        font-size: 16px;
+    }
+
+    .slot-title {
+        display: block;
+        margin-top: 8px;
+        font-size: 13px;
+        word-break: break-word;
+    }
+
+    .booking-panel h3 {
+        font-size: 22px;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 18px;
+    }
+
+    .booking-summary {
+        padding: 14px;
+        border-radius: 14px;
+        background: #eef2ff;
+        color: #3730a3;
+        margin-bottom: 18px;
+    }
+
+    .summary-label {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        opacity: 0.8;
+    }
+
+    .summary-value {
+        margin-top: 4px;
+        font-size: 18px;
+        font-weight: 800;
+    }
+
+    .suggestions {
+        margin-top: 6px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        display: none;
+        background: white;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+    }
+
+    .suggestion-item {
+        padding: 10px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .suggestion-item:hover {
+        background: #eef2ff;
+    }
+
+    .suggestion-name {
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .suggestion-mail {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    @@media (max-width: 992px) {
+        .rooms-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .calendar-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .rooms-filter {
+            grid-template-columns: 1fr;
+        }
+
+        .rooms-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>
+
+<style>
+    /* KIOSK / TABLET MODE */
+header,
+.navbar,
+footer {
+    display: none !important;
+}
+
+.container {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+}
+
+main {
+    padding: 0 !important;
+}
+
+body {
+    overflow: hidden;
+    background: #f4f6f9;
+}
+
+.rooms-wrapper {
+    max-width: none;
+    height: 100vh;
+    margin: 0;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+}
+
+.rooms-header {
+    margin-bottom: 14px;
+}
+
+.rooms-title {
+    font-size: 28px;
+}
+
+.rooms-subtitle {
+    font-size: 14px;
+}
+
+.rooms-filter {
+    display: none;
+}
+
+.day-nav {
+    padding: 6px;
+}
+
+.day-btn {
+    width: 54px;
+    height: 54px;
+    font-size: 38px;
+    border-radius: 16px;
+}
+
+.day-current {
+    min-width: 170px;
+    font-size: 20px;
+}
+
+.rooms-layout {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 16px;
+}
+
+.calendar-card,
+.booking-panel {
+    border-radius: 20px;
+    padding: 14px;
+}
+
+.calendar-card {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.calendar-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.time-slot {
+    min-height: 86px;
+    border-radius: 16px;
+    padding: 12px;
+}
+
+.slot-time {
+    font-size: 20px;
+}
+
+.slot-title {
+    font-size: 13px;
+}
+
+.booking-panel {
+    height: 100%;
+    overflow-y: auto;
+}
+
+.booking-panel h3 {
+    font-size: 24px;
+}
+
+.summary-value {
+    font-size: 22px;
+}
+
+.form-control,
+.form-select {
+    min-height: 48px;
+    font-size: 16px;
+}
+
+.book-btn {
+    width: 100%;
+    min-height: 56px;
+    font-size: 18px;
+    border-radius: 16px;
+}
+
+.suggestion-item {
+    padding: 14px;
+}
+
+.suggestion-name {
+    font-size: 16px;
+}
+
+.suggestion-mail {
+    font-size: 13px;
+}
+
+@@media (orientation: portrait) {
+    .rooms-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+    }
+
+    .booking-panel {
+        height: auto;
+        max-height: 38vh;
+    }
+
+    .calendar-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@@media (max-width: 900px) {
+    .rooms-wrapper {
+        padding: 12px;
+    }
+
+    .rooms-header {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .rooms-title {
+        font-size: 22px;
+    }
+
+    .rooms-subtitle {
+        display: none;
+    }
+
+    .calendar-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .rooms-layout {
+        grid-template-columns: 1fr 300px;
+        gap: 12px;
+    }
+}
+</style>
+
+    @{
+        var usersJson = JsonSerializer.Serialize(
+            organizerUsers
+                .Select(u => new
+                {
+                    name = u.DisplayName ?? "",
+                    mail = u.Mail ?? u.UserPrincipalName ?? ""
+                })
+                .Where(u => !string.IsNullOrWhiteSpace(u.name) && !string.IsNullOrWhiteSpace(u.mail))
+                .ToList()
+        );
+    }
+
+<script>
+    const users = @Html.Raw(usersJson);
+
+    let selectedSlots = [];
+
+    const slots = document.querySelectorAll(".time-slot.free");
+    const selectedRange = document.getElementById("selectedRange");
+    const bookingStart = document.getElementById("bookingStart");
+    const bookingEnd = document.getElementById("bookingEnd");
+    const bookBtn = document.getElementById("bookBtn");
+    const organizerEmail = document.getElementById("organizerEmail");
+
+    slots.forEach(slot => {
+        slot.addEventListener("click", () => {
+            const time = slot.dataset.time;
+
+            if (selectedSlots.includes(time)) {
+                selectedSlots = selectedSlots.filter(x => x !== time);
+                slot.classList.remove("selected");
+            } else {
+                selectedSlots.push(time);
+                slot.classList.add("selected");
+            }
+
+            selectedSlots.sort();
+            updateSelectedRange();
+        });
+    });
+
+    function updateSelectedRange() {
+        if (selectedSlots.length === 0) {
+            selectedRange.textContent = "Nie wybrano";
+            bookingStart.value = "";
+            bookingEnd.value = "";
+            refreshBookButton();
+            return;
+        }
+
+        const start = new Date(selectedSlots[0]);
+        const end = new Date(selectedSlots[selectedSlots.length - 1]);
+        end.setMinutes(end.getMinutes() + 30);
+
+        selectedRange.textContent =
+            formatTime(start) + " - " + formatTime(end);
+
+        bookingStart.value = toLocalInputValue(start);
+        bookingEnd.value = toLocalInputValue(end);
+
+        refreshBookButton();
+    }
+
+    function formatTime(date) {
+        return date.toLocaleTimeString("pl-PL", {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    function toLocalInputValue(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const hour = String(date.getHours()).padStart(2, "0");
+        const minute = String(date.getMinutes()).padStart(2, "0");
+
+        return `${year}-${month}-${day}T${hour}:${minute}:00`;
+    }
+
+    const organizerSearch = document.getElementById("organizerSearch");
+    const suggestions = document.getElementById("organizerSuggestions");
+
+    organizerSearch.addEventListener("input", () => {
+        const value = organizerSearch.value.trim().toLowerCase();
+
+        organizerEmail.value = "";
+        refreshBookButton();
+
+        if (value.length < 2) {
+            suggestions.style.display = "none";
+            suggestions.innerHTML = "";
+            return;
+        }
+
+        const matched = users
+            .filter(u =>
+                u.name.toLowerCase().includes(value) ||
+                u.mail.toLowerCase().includes(value))
+            .slice(0, 8);
+
+        if (matched.length === 0) {
+            suggestions.style.display = "none";
+            suggestions.innerHTML = "";
+            return;
+        }
+
+        suggestions.innerHTML = matched.map(u => `
+            <div class="suggestion-item" data-name="${u.name}" data-mail="${u.mail}">
+                <div class="suggestion-name">${u.name}</div>
+                <div class="suggestion-mail">${u.mail}</div>
+            </div>
+        `).join("");
+
+        suggestions.style.display = "block";
+
+        document.querySelectorAll(".suggestion-item").forEach(item => {
+            item.addEventListener("click", () => {
+                organizerSearch.value = item.dataset.name;
+                organizerEmail.value = item.dataset.mail;
+                suggestions.style.display = "none";
+                refreshBookButton();
+            });
+        });
+    });
+
+    function refreshBookButton() {
+        bookBtn.disabled =
+            !bookingStart.value ||
+            !bookingEnd.value ||
+            !organizerEmail.value;
+    }
+</script>

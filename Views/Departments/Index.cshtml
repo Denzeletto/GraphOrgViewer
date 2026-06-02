@@ -6,7 +6,19 @@
 
 <div class="departments-wrapper">
     <h2 class="departments-title">Działy</h2>
+    @if (TempData["RoomBookingSuccess"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["RoomBookingSuccess"]
+        </div>
+    }
 
+    @if (TempData["RoomBookingError"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["RoomBookingError"]
+        </div>
+    }
     <div class="departments-grid">
         @foreach (var department in Model)
         {
