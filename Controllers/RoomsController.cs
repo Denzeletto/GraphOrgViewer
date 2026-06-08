@@ -44,10 +44,10 @@ public class RoomsController : Controller
     {
         if (string.IsNullOrWhiteSpace(request.RoomEmail)
             || string.IsNullOrWhiteSpace(request.OrganizerEmail)
-            || string.IsNullOrWhiteSpace(request.Subject)
             || request.Start >= request.End)
         {
             TempData["RoomBookingError"] = "Uzupełnij poprawnie dane rezerwacji.";
+
             return RedirectToAction(nameof(Index), new
             {
                 roomEmail = request.RoomEmail,
@@ -66,6 +66,7 @@ public class RoomsController : Controller
         if (hasConflict)
         {
             TempData["RoomBookingError"] = "Sala jest już zajęta w wybranym terminie.";
+
             return RedirectToAction(nameof(Index), new
             {
                 roomEmail = request.RoomEmail,
@@ -73,14 +74,25 @@ public class RoomsController : Controller
             });
         }
 
-        await _graphOrgService.BookRoomAsync(
+        var subject = string.IsNullOrWhiteSpace(request.Subject)
+            ? "Rezerwacja sali"
+            : request.Subject.Trim();
+
+        var result = await _graphOrgService.BookRoomAsync(
             request.OrganizerEmail,
             request.RoomEmail,
             request.Start,
             request.End,
-            request.Subject);
+            subject);
 
-        TempData["RoomBookingSuccess"] = "Rezerwacja została wysłana.";
+        if (result.Success)
+        {
+            TempData["RoomBookingSuccess"] = result.Message;
+        }
+        else
+        {
+            TempData["RoomBookingError"] = result.Message;
+        }
 
         return RedirectToAction(nameof(Index), new
         {

@@ -12,7 +12,7 @@
 
     var slots = new List<DateTime>();
     var startDay = Model.SelectedDate.Date.AddHours(7);
-    var endDay = Model.SelectedDate.Date.AddHours(18);
+    var endDay = Model.SelectedDate.Date.AddHours(17).AddMinutes(30);
 
     for (var time = startDay; time < endDay; time = time.AddMinutes(30))
     {
@@ -142,31 +142,51 @@
     return;
 }
 <div class="rooms-wrapper">
+    @if (TempData["RoomBookingSuccess"] != null)
+    {
+        <div class="booking-toast booking-toast-success">
+            @TempData["RoomBookingSuccess"]
+        </div>
+    }
+
+    @if (TempData["RoomBookingError"] != null)
+    {
+        <div class="booking-toast booking-toast-error">
+            @TempData["RoomBookingError"]
+        </div>
+    }
+
     <div class="rooms-header">
         <div>
             <h2 class="rooms-title">@(selectedRoom?.Name ?? "Sala")</h2>
         </div>
 
-        <div class="day-nav">
-            <a class="day-btn"
-               asp-controller="Rooms"
-               asp-action="Index"
-               asp-route-roomEmail="@Model.SelectedRoomEmail"
-               asp-route-date="@previousDay">
-                ‹
-            </a>
-
-            <div class="day-current">
-                @Model.SelectedDate.ToString("dd.MM.yyyy")
+        <div class="top-right-panel">
+            <div class="current-time-box">
+                <span id="currentTime">--:--</span>
             </div>
 
-            <a class="day-btn"
-               asp-controller="Rooms"
-               asp-action="Index"
-               asp-route-roomEmail="@Model.SelectedRoomEmail"
-               asp-route-date="@nextDay">
-                ›
-            </a>
+            <div class="day-nav">
+                <a class="day-btn"
+                asp-controller="Rooms"
+                asp-action="Index"
+                asp-route-roomEmail="@Model.SelectedRoomEmail"
+                asp-route-date="@previousDay">
+                    ‹
+                </a>
+
+                <div class="day-current">
+                    @Model.SelectedDate.ToString("dd.MM.yyyy")
+                </div>
+
+                <a class="day-btn"
+                asp-controller="Rooms"
+                asp-action="Index"
+                asp-route-roomEmail="@Model.SelectedRoomEmail"
+                asp-route-date="@nextDay">
+                    ›
+                </a>
+            </div>
         </div>
     </div>
 
@@ -176,14 +196,15 @@
                 @foreach (var slot in slots)
                 {
                     var busy = IsBusy(slot);
+                    var past = Model.SelectedDate.Date == DateTime.Today && slot < DateTime.Now;                   
                     var relatedEvent = Model.Events.FirstOrDefault(e =>
                         e.Start < slot.AddMinutes(30) &&
                         e.End > slot);
 
                     <button type="button"
-                            class="time-slot @(busy ? "busy" : "free")"
+                            class="time-slot @(busy ? "busy" : past ? "past" : "free")"
                             data-time="@slot.ToString("yyyy-MM-ddTHH:mm:ss")"
-                            disabled="@(busy ? "disabled" : null)">
+                            disabled="@((busy || past) ? "disabled" : null)">
                         <span class="slot-time">@slot.ToString("HH:mm")</span>
 
                         @if (busy && relatedEvent != null)
@@ -215,7 +236,9 @@
                         Nie wybrano
                     </div>
                 </div>
-
+                <button type="button" class="clear-btn" id="clearSelectionBtn">
+                    Wyczyść
+                </button>
                 <div class="mb-3">
                     <label class="form-label">Organizator</label>
                     <input type="text"
@@ -242,63 +265,104 @@
         </div>
     </div>
 </div>
-
 <style>
+    :root {
+        --side-panel-width: 340px;
+    }
+
+    header,
+    .navbar,
+    footer {
+        display: none !important;
+    }
+
+    .container {
+        max-width: none !important;
+        width: 100% !important;
+        padding: 0 !important;
+    }
+
+    main {
+        padding: 0 !important;
+    }
+
     body {
+        overflow: hidden;
         background: #f4f6f9;
     }
 
     .rooms-wrapper {
-        max-width: 1300px;
-        margin: 30px auto;
-        padding: 24px;
+        max-width: none;
+        height: 100vh;
+        margin: 0;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
     }
 
     .rooms-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 24px;
         gap: 20px;
+        margin-bottom: 14px;
     }
 
     .rooms-title {
-        font-size: 32px;
-        font-weight: 700;
+        font-size: 28px;
+        font-weight: 800;
         color: #1f2937;
         margin: 0;
     }
 
-    .rooms-subtitle {
-        margin-top: 6px;
-        color: #6b7280;
-        font-size: 15px;
-    }
-
-    .day-nav {
+    .top-right-panel {
         display: flex;
         align-items: center;
         gap: 12px;
+    }
+
+    .current-time-box {
+        width: 120px;
+        height: 66px;
+        border-radius: 16px;
+        background: #111827;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 21px;
+        font-weight: 900;
+        letter-spacing: 1px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .day-nav {
+        width: var(--side-panel-width);
+        height: 66px;
+        display: grid;
+        grid-template-columns: 56px 1fr 56px;
+        align-items: center;
+        gap: 8px;
         background: white;
         border: 1px solid #e5e7eb;
         border-radius: 16px;
-        padding: 8px;
+        padding: 6px;
         box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
     }
 
     .day-btn {
-        width: 42px;
-        height: 42px;
-        border-radius: 12px;
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
         background: #111827;
         color: white;
         text-decoration: none;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 30px;
+        font-size: 38px;
         line-height: 1;
-        font-weight: 700;
+        font-weight: 800;
     }
 
     .day-btn:hover {
@@ -307,72 +371,45 @@
     }
 
     .day-current {
-        min-width: 130px;
         text-align: center;
-        font-weight: 700;
+        font-size: 18px;
+        font-weight: 900;
         color: #111827;
-    }
-
-    .rooms-filter {
-        display: grid;
-        grid-template-columns: 1fr 220px 140px;
-        gap: 16px;
-        align-items: end;
-        background: white;
-        padding: 18px;
-        border-radius: 16px;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
-        margin-bottom: 22px;
-    }
-
-    .filter-btn,
-    .book-btn {
-        border: 0;
-        border-radius: 12px;
-        background: #111827;
-        color: white;
-        font-weight: 700;
-        padding: 11px 16px;
-        transition: 0.15s ease;
-    }
-
-    .filter-btn:hover,
-    .book-btn:hover {
-        background: #2563eb;
-    }
-
-    .book-btn:disabled {
-        background: #9ca3af;
-        cursor: not-allowed;
+        white-space: nowrap;
     }
 
     .rooms-layout {
+        flex: 1;
+        min-height: 0;
         display: grid;
-        grid-template-columns: 1fr 360px;
-        gap: 22px;
-        align-items: start;
+        grid-template-columns: 1fr var(--side-panel-width);
+        gap: 16px;
     }
 
     .calendar-card,
     .booking-panel {
         background: white;
         border: 1px solid #e5e7eb;
-        border-radius: 18px;
+        border-radius: 20px;
         box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
-        padding: 18px;
+        padding: 14px;
+    }
+
+    .calendar-card {
+        min-height: 0;
+        overflow-y: auto;
     }
 
     .calendar-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 12px;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
     }
 
     .time-slot {
+        min-height: 86px;
         border: 1px solid #e5e7eb;
-        border-radius: 14px;
-        min-height: 82px;
+        border-radius: 16px;
         padding: 12px;
         text-align: left;
         background: #ffffff;
@@ -401,10 +438,18 @@
         opacity: 0.8;
     }
 
+    .time-slot.range-blocked {
+        background: #e5e7eb !important;
+        color: #9ca3af !important;
+        border-color: #d1d5db !important;
+        cursor: not-allowed;
+        opacity: 0.75;
+    }
+
     .slot-time {
         display: block;
-        font-weight: 800;
-        font-size: 16px;
+        font-weight: 900;
+        font-size: 20px;
     }
 
     .slot-title {
@@ -414,9 +459,14 @@
         word-break: break-word;
     }
 
+    .booking-panel {
+        height: 100%;
+        overflow-y: auto;
+    }
+
     .booking-panel h3 {
-        font-size: 22px;
-        font-weight: 700;
+        font-size: 24px;
+        font-weight: 800;
         color: #1f2937;
         margin-bottom: 18px;
     }
@@ -426,20 +476,74 @@
         border-radius: 14px;
         background: #eef2ff;
         color: #3730a3;
-        margin-bottom: 18px;
+        margin-bottom: 12px;
     }
 
     .summary-label {
         font-size: 12px;
-        font-weight: 700;
+        font-weight: 800;
         text-transform: uppercase;
         opacity: 0.8;
     }
 
     .summary-value {
         margin-top: 4px;
-        font-size: 18px;
+        font-size: 22px;
+        font-weight: 900;
+    }
+
+    .clear-btn {
+        width: 100%;
+        min-height: 48px;
+        margin-bottom: 18px;
+        border: 0;
+        border-radius: 14px;
+        background: #e5e7eb;
+        color: #111827;
         font-weight: 800;
+        font-size: 16px;
+        transition: 0.15s ease;
+    }
+
+    .clear-btn:hover {
+        background: #d1d5db;
+    }
+
+    .clear-btn:active {
+        transform: scale(0.98);
+    }
+
+    .form-control,
+    .form-select {
+        min-height: 48px;
+        font-size: 16px;
+        border-radius: 12px;
+    }
+
+    .form-label {
+        font-weight: 700;
+        color: #374151;
+    }
+
+    .book-btn {
+        width: 100%;
+        min-height: 56px;
+        border: 0;
+        border-radius: 16px;
+        background: #111827;
+        color: white;
+        font-weight: 800;
+        font-size: 18px;
+        transition: 0.15s ease;
+    }
+
+    .book-btn:hover {
+        background: #2563eb;
+    }
+
+    .book-btn:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
     }
 
     .suggestions {
@@ -453,7 +557,7 @@
     }
 
     .suggestion-item {
-        padding: 10px 12px;
+        padding: 14px;
         cursor: pointer;
         border-bottom: 1px solid #f3f4f6;
     }
@@ -463,261 +567,307 @@
     }
 
     .suggestion-name {
-        font-weight: 700;
+        font-size: 16px;
+        font-weight: 800;
         color: #111827;
     }
 
     .suggestion-mail {
-        font-size: 12px;
+        font-size: 13px;
         color: #6b7280;
     }
 
-    @@media (max-width: 992px) {
+    .booking-toast {
+        position: fixed;
+        top: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        padding: 16px 24px;
+        border-radius: 16px;
+        font-size: 18px;
+        font-weight: 800;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+    }
+
+    .booking-toast-success {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .booking-toast-error {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    @@media (orientation: portrait) {
         .rooms-layout {
             grid-template-columns: 1fr;
+            grid-template-rows: 1fr auto;
+        }
+
+        .booking-panel {
+            height: auto;
+            max-height: 38vh;
+        }
+
+        .calendar-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @@media (max-width: 900px) {
+        :root {
+            --side-panel-width: 300px;
+        }
+
+        .rooms-wrapper {
+            padding: 12px;
+        }
+
+        .rooms-header {
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .rooms-title {
+            font-size: 22px;
+        }
+
+        .top-right-panel {
+            grid-template-columns: 100px 1fr;
+        }
+
+        .top-right-panel {
+            gap: 8px;
+        }
+
+        .current-time-box {
+            width: 100px;
+            height: 56px;
+            font-size: 18px;
+        }
+
+        .day-btn {
+            width: 44px;
+            height: 44px;
+            font-size: 32px;
+        }
+
+        .day-current {
+            font-size: 15px;
+        }
+
+        .rooms-layout {
+            gap: 12px;
         }
 
         .calendar-grid {
             grid-template-columns: repeat(2, 1fr);
         }
 
-        .rooms-filter {
-            grid-template-columns: 1fr;
+        .day-nav {
+            width: var(--side-panel-width);
+            height: 56px;
+            grid-template-columns: 46px 1fr 46px;
         }
-
-        .rooms-header {
-            flex-direction: column;
-            align-items: flex-start;
+        .time-slot.past {
+            background: #f1f5f9;
+            border-color: #e2e8f0;
+            color: #94a3b8;
+            cursor: not-allowed;
+            opacity: 0.65;
         }
     }
 </style>
 
-<style>
-    /* KIOSK / TABLET MODE */
-header,
-.navbar,
-footer {
-    display: none !important;
+@{
+    var usersJson = JsonSerializer.Serialize(
+        organizerUsers
+            .Select(u => new
+            {
+                name = u.DisplayName ?? "",
+                mail = u.Mail ?? u.UserPrincipalName ?? ""
+            })
+            .Where(u => !string.IsNullOrWhiteSpace(u.name) && !string.IsNullOrWhiteSpace(u.mail))
+            .ToList()
+    );
 }
-
-.container {
-    max-width: none !important;
-    width: 100% !important;
-    padding: 0 !important;
-}
-
-main {
-    padding: 0 !important;
-}
-
-body {
-    overflow: hidden;
-    background: #f4f6f9;
-}
-
-.rooms-wrapper {
-    max-width: none;
-    height: 100vh;
-    margin: 0;
-    padding: 18px;
-    display: flex;
-    flex-direction: column;
-}
-
-.rooms-header {
-    margin-bottom: 14px;
-}
-
-.rooms-title {
-    font-size: 28px;
-}
-
-.rooms-subtitle {
-    font-size: 14px;
-}
-
-.rooms-filter {
-    display: none;
-}
-
-.day-nav {
-    padding: 6px;
-}
-
-.day-btn {
-    width: 54px;
-    height: 54px;
-    font-size: 38px;
-    border-radius: 16px;
-}
-
-.day-current {
-    min-width: 170px;
-    font-size: 20px;
-}
-
-.rooms-layout {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 16px;
-}
-
-.calendar-card,
-.booking-panel {
-    border-radius: 20px;
-    padding: 14px;
-}
-
-.calendar-card {
-    min-height: 0;
-    overflow-y: auto;
-}
-
-.calendar-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-}
-
-.time-slot {
-    min-height: 86px;
-    border-radius: 16px;
-    padding: 12px;
-}
-
-.slot-time {
-    font-size: 20px;
-}
-
-.slot-title {
-    font-size: 13px;
-}
-
-.booking-panel {
-    height: 100%;
-    overflow-y: auto;
-}
-
-.booking-panel h3 {
-    font-size: 24px;
-}
-
-.summary-value {
-    font-size: 22px;
-}
-
-.form-control,
-.form-select {
-    min-height: 48px;
-    font-size: 16px;
-}
-
-.book-btn {
-    width: 100%;
-    min-height: 56px;
-    font-size: 18px;
-    border-radius: 16px;
-}
-
-.suggestion-item {
-    padding: 14px;
-}
-
-.suggestion-name {
-    font-size: 16px;
-}
-
-.suggestion-mail {
-    font-size: 13px;
-}
-
-@@media (orientation: portrait) {
-    .rooms-layout {
-        grid-template-columns: 1fr;
-        grid-template-rows: 1fr auto;
-    }
-
-    .booking-panel {
-        height: auto;
-        max-height: 38vh;
-    }
-
-    .calendar-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@@media (max-width: 900px) {
-    .rooms-wrapper {
-        padding: 12px;
-    }
-
-    .rooms-header {
-        flex-direction: row;
-        align-items: center;
-    }
-
-    .rooms-title {
-        font-size: 22px;
-    }
-
-    .rooms-subtitle {
-        display: none;
-    }
-
-    .calendar-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .rooms-layout {
-        grid-template-columns: 1fr 300px;
-        gap: 12px;
-    }
-}
-</style>
-
-    @{
-        var usersJson = JsonSerializer.Serialize(
-            organizerUsers
-                .Select(u => new
-                {
-                    name = u.DisplayName ?? "",
-                    mail = u.Mail ?? u.UserPrincipalName ?? ""
-                })
-                .Where(u => !string.IsNullOrWhiteSpace(u.name) && !string.IsNullOrWhiteSpace(u.mail))
-                .ToList()
-        );
-    }
 
 <script>
     const users = @Html.Raw(usersJson);
 
+    let firstSelectedSlot = null;
     let selectedSlots = [];
 
-    const slots = document.querySelectorAll(".time-slot.free");
+    const slots = Array.from(document.querySelectorAll(".time-slot.free"));
+    const allSlotButtons = Array.from(document.querySelectorAll(".time-slot"));
     const selectedRange = document.getElementById("selectedRange");
     const bookingStart = document.getElementById("bookingStart");
     const bookingEnd = document.getElementById("bookingEnd");
     const bookBtn = document.getElementById("bookBtn");
     const organizerEmail = document.getElementById("organizerEmail");
+    const clearSelectionBtn = document.getElementById("clearSelectionBtn");
+    const currentTime = document.getElementById("currentTime");
+
+    clearSelectionBtn.addEventListener("click", () => {
+        clearSelectedSlots();
+        updateSelectedRange();
+
+        organizerSearch.value = "";
+        organizerEmail.value = "";
+        suggestions.style.display = "none";
+        suggestions.innerHTML = "";
+
+        document.querySelector('input[name="subject"]').value = "";
+
+        refreshBookButton();
+    });
+
+    function updateCurrentTime() {
+        const now = new Date();
+
+        currentTime.textContent = now.toLocaleTimeString("pl-PL", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        });
+    }
+
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
 
     slots.forEach(slot => {
         slot.addEventListener("click", () => {
-            const time = slot.dataset.time;
+            const clickedTime = slot.dataset.time;
 
-            if (selectedSlots.includes(time)) {
-                selectedSlots = selectedSlots.filter(x => x !== time);
-                slot.classList.remove("selected");
-            } else {
-                selectedSlots.push(time);
+            if (!firstSelectedSlot) {
+                clearSelectedSlots();
+
+                firstSelectedSlot = clickedTime;
+                selectedSlots = [clickedTime];
                 slot.classList.add("selected");
+
+                markUnavailableAfterFirstClick(clickedTime);
+                updateSelectedRange();
+                return;
             }
 
-            selectedSlots.sort();
+            if (firstSelectedSlot === clickedTime) {
+                clearSelectedSlots();
+                updateSelectedRange();
+                return;
+            }
+
+            const canSelect = selectRange(firstSelectedSlot, clickedTime);
+
+            if (!canSelect) {
+                clearSelectedSlots();
+                firstSelectedSlot = clickedTime;
+                selectedSlots = [clickedTime];
+                slot.classList.add("selected");
+                markUnavailableAfterFirstClick(clickedTime);
+            } else {
+                firstSelectedSlot = null;
+                clearRangeBlocked();
+            }
+
             updateSelectedRange();
         });
     });
+
+    function selectRange(startTime, endTime) {
+        clearSelectedSlots(false);
+
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+
+        const min = start < end ? start : end;
+        const max = start < end ? end : start;
+
+        const rangeSlots = allSlotButtons.filter(slot => {
+            const slotTime = new Date(slot.dataset.time);
+            return slotTime >= min && slotTime <= max;
+        });
+
+        const hasBusyInside = rangeSlots.some(slot => slot.classList.contains("busy"));
+
+        if (hasBusyInside) {
+            return false;
+        }
+
+        selectedSlots = [];
+
+        rangeSlots.forEach(slot => {
+            if (slot.classList.contains("free")) {
+                selectedSlots.push(slot.dataset.time);
+                slot.classList.add("selected");
+            }
+        });
+
+        selectedSlots.sort();
+        return true;
+    }
+
+    function markUnavailableAfterFirstClick(startTime) {
+        clearRangeBlocked();
+
+        const start = new Date(startTime);
+        const sortedAllSlots = [...allSlotButtons].sort((a, b) =>
+            new Date(a.dataset.time) - new Date(b.dataset.time));
+
+        const startIndex = sortedAllSlots.findIndex(slot => slot.dataset.time === startTime);
+
+        let firstBusyAfter = null;
+
+        for (let i = startIndex + 1; i < sortedAllSlots.length; i++) {
+            if (sortedAllSlots[i].classList.contains("busy")) {
+                firstBusyAfter = i;
+                break;
+            }
+        }
+
+        if (firstBusyAfter !== null) {
+            for (let i = firstBusyAfter + 1; i < sortedAllSlots.length; i++) {
+                sortedAllSlots[i].classList.add("range-blocked");
+            }
+        }
+
+        let firstBusyBefore = null;
+
+        for (let i = startIndex - 1; i >= 0; i--) {
+            if (sortedAllSlots[i].classList.contains("busy")) {
+                firstBusyBefore = i;
+                break;
+            }
+        }
+
+        if (firstBusyBefore !== null) {
+            for (let i = 0; i < firstBusyBefore; i++) {
+                sortedAllSlots[i].classList.add("range-blocked");
+            }
+        }
+    }
+
+    function clearRangeBlocked() {
+        allSlotButtons.forEach(slot => {
+            slot.classList.remove("range-blocked");
+        });
+    }
+
+    function clearSelectedSlots(resetFirst = true) {
+        selectedSlots = [];
+
+        allSlotButtons.forEach(slot => {
+            slot.classList.remove("selected");
+            slot.classList.remove("range-blocked");
+        });
+
+        if (resetFirst) {
+            firstSelectedSlot = null;
+        }
+    }
 
     function updateSelectedRange() {
         if (selectedSlots.length === 0) {
@@ -810,4 +960,27 @@ body {
             !bookingEnd.value ||
             !organizerEmail.value;
     }
+
+    let inactivityTimer = null;
+
+    const inactivityLimitMs = 5 * 60 * 1000;
+
+    function resetInactivityTimer() {
+        clearTimeout(inactivityTimer);
+
+        inactivityTimer = setTimeout(() => {
+            const url = new URL(window.location.href);
+
+            url.searchParams.set("roomEmail", "@Model.SelectedRoomEmail");
+            url.searchParams.set("date", "@Model.SelectedDate.ToString("yyyy-MM-dd")");
+
+            window.location.href = url.toString();
+        }, inactivityLimitMs);
+    }
+
+    ["click", "touchstart", "keydown", "mousemove"].forEach(eventName => {
+        document.addEventListener(eventName, resetInactivityTimer, { passive: true });
+    });
+
+    resetInactivityTimer();
 </script>

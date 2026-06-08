@@ -527,45 +527,57 @@ public class GraphOrgService
         }).ToList() ?? [];
     }
 
-    public async Task BookRoomAsync(
+    public async Task<(bool Success, string Message)> BookRoomAsync(
     string organizerEmail,
     string roomEmail,
     DateTime start,
     DateTime end,
     string subject)
     {
-        var newEvent = new Event
+        try
         {
-            Subject = subject,
-            Start = new DateTimeTimeZone
+            var newEvent = new Event
             {
-                DateTime = start.ToString("yyyy-MM-ddTHH:mm:ss"),
-                TimeZone = "Central European Standard Time"
-            },
-            End = new DateTimeTimeZone
-            {
-                DateTime = end.ToString("yyyy-MM-ddTHH:mm:ss"),
-                TimeZone = "Central European Standard Time"
-            },
-            Location = new Location
-            {
-                DisplayName = roomEmail
-            },
-            Attendees =
-            [
-                new Attendee
-                {
-                    Type = AttendeeType.Resource,
-                    EmailAddress = new EmailAddress
-                    {
-                        Address = roomEmail
-                    }
-                }
-            ]
-        };
+                Subject = string.IsNullOrWhiteSpace(subject)
+                    ? "Rezerwacja sali"
+                    : subject.Trim(),
 
-        await _graphClient.Users[organizerEmail]
-            .Events
-            .PostAsync(newEvent);
+                Start = new DateTimeTimeZone
+                {
+                    DateTime = start.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    TimeZone = "Central European Standard Time"
+                },
+                End = new DateTimeTimeZone
+                {
+                    DateTime = end.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    TimeZone = "Central European Standard Time"
+                },
+                Location = new Location
+                {
+                    DisplayName = roomEmail
+                },
+                Attendees =
+                [
+                    new Attendee
+                    {
+                        Type = AttendeeType.Resource,
+                        EmailAddress = new EmailAddress
+                        {
+                            Address = roomEmail
+                        }
+                    }
+                ]
+            };
+
+            await _graphClient.Users[organizerEmail]
+                .Events
+                .PostAsync(newEvent);
+
+            return (true, "Rezerwacja została utworzona.");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Nie udało się utworzyć rezerwacji. {ex.Message}");
+        }
     }
 }
