@@ -5,9 +5,6 @@
 @{
     ViewData["Title"] = "Sale";
 
-    var previousDay = Model.SelectedDate.AddDays(-1).ToString("yyyy-MM-dd");
-    var nextDay = Model.SelectedDate.AddDays(1).ToString("yyyy-MM-dd");
-
     var selectedRoom = Model.Rooms.FirstOrDefault(x => x.Email == Model.SelectedRoomEmail);
 
     var slots = new List<DateTime>();
@@ -43,8 +40,7 @@
                     <a class="room-select-tile"
                     asp-controller="Rooms"
                     asp-action="Index"
-                    asp-route-roomEmail="@room.Email"
-                    asp-route-date="@Model.SelectedDate.ToString("yyyy-MM-dd")">
+                    asp-route-roomEmail="@room.Email">
                         <span>@room.Name</span>
                         <small>@room.Email</small>
                     </a>
@@ -167,25 +163,11 @@
             </div>
 
             <div class="day-nav">
-                <a class="day-btn"
-                asp-controller="Rooms"
-                asp-action="Index"
-                asp-route-roomEmail="@Model.SelectedRoomEmail"
-                asp-route-date="@previousDay">
-                    ‹
-                </a>
-
                 <div class="day-current">
-                    @Model.SelectedDate.ToString("dd.MM.yyyy")
+                    <span id="currentDate">
+                        @DateTime.Today.ToString("dd.MM.yyyy")
+                    </span>
                 </div>
-
-                <a class="day-btn"
-                asp-controller="Rooms"
-                asp-action="Index"
-                asp-route-roomEmail="@Model.SelectedRoomEmail"
-                asp-route-date="@nextDay">
-                    ›
-                </a>
             </div>
         </div>
     </div>
@@ -340,7 +322,7 @@
         width: var(--side-panel-width);
         height: 66px;
         display: grid;
-        grid-template-columns: 56px 1fr 56px;
+        grid-template-columns: 1fr;
         align-items: center;
         gap: 8px;
         background: white;
@@ -600,6 +582,14 @@
         color: #991b1b;
     }
 
+    .time-slot.past {
+        background: #f1f5f9;
+        border-color: #e2e8f0;
+        color: #94a3b8;
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+
     @@media (orientation: portrait) {
         .rooms-layout {
             grid-template-columns: 1fr;
@@ -640,7 +630,7 @@
         }
 
         .top-right-panel {
-            gap: 8px;
+            gap: 12px;
         }
 
         .current-time-box {
@@ -670,14 +660,7 @@
         .day-nav {
             width: var(--side-panel-width);
             height: 56px;
-            grid-template-columns: 46px 1fr 46px;
-        }
-        .time-slot.past {
-            background: #f1f5f9;
-            border-color: #e2e8f0;
-            color: #94a3b8;
-            cursor: not-allowed;
-            opacity: 0.65;
+            grid-template-columns: 1fr;
         }
     }
 </style>
@@ -737,6 +720,18 @@
 
     updateCurrentTime();
     setInterval(updateCurrentTime, 1000);
+    function millisecondsUntilNextMidnight() {
+        const now = new Date();
+        const nextMidnight = new Date(now);
+
+        nextMidnight.setHours(24, 0, 0, 0);
+
+        return nextMidnight - now;
+    }
+
+    setTimeout(() => {
+        window.location.reload();
+    }, millisecondsUntilNextMidnight());
 
     slots.forEach(slot => {
         slot.addEventListener("click", () => {
@@ -969,12 +964,7 @@
         clearTimeout(inactivityTimer);
 
         inactivityTimer = setTimeout(() => {
-            const url = new URL(window.location.href);
-
-            url.searchParams.set("roomEmail", "@Model.SelectedRoomEmail");
-            url.searchParams.set("date", "@Model.SelectedDate.ToString("yyyy-MM-dd")");
-
-            window.location.href = url.toString();
+            window.location.reload();
         }, inactivityLimitMs);
     }
 

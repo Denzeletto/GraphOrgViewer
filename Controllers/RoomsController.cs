@@ -16,7 +16,7 @@ public class RoomsController : Controller
     public async Task<IActionResult> Index(string? roomEmail, DateTime? date)
     {
         var rooms = _graphOrgService.GetConfiguredRooms();
-        var selectedDate = date ?? DateTime.Today;
+        var selectedDate = DateTime.Today;
 
         var events = new List<RoomCalendarEventViewModel>();
         var users = new List<GraphUserViewModel>();
